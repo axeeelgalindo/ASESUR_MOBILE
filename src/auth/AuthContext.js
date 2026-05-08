@@ -26,7 +26,7 @@ export function AuthProvider({ children }) {
       setAuthToken(t);
       setToken(t);
 
-      const res = await api.get("/me");
+      const res = await api.get("/auth/me");
       setMe(res.data);
     } catch (e) {
       await AsyncStorage.removeItem(TOKEN_KEY);
@@ -43,7 +43,7 @@ export function AuthProvider({ children }) {
   }, []);
 
   const signIn = async (email, password) => {
-    const res = await api.post("/login", { email, password });
+    const res = await api.post("/auth/login", { email, password });
     if (!res.data?.ok || !res.data?.token) throw new Error("Login inválido");
 
     const t = res.data.token;
@@ -52,7 +52,7 @@ export function AuthProvider({ children }) {
     setAuthToken(t);
     setToken(t);
 
-    const meRes = await api.get("/me");
+    const meRes = await api.get("/auth/me");
     setMe(meRes.data);
   };
 

@@ -11,6 +11,9 @@ import CasoDetalleScreen from "../screens/CasoDetalleScreen";
 import TomarFotoScreen from "../screens/TomarFotoScreen";
 import FotosCaptacionScreen from "../screens/FotosCaptacionScreen";
 
+// ✅ IMPORTA TU SCREEN DEL PDF
+import PDFCasoScreen from "../screens/PDFCasoScreen";
+
 const Stack = createNativeStackNavigator();
 
 function CenterLoader() {
@@ -29,19 +32,53 @@ export default function RootNavigator() {
   if (!token) {
     return (
       <Stack.Navigator>
-        <Stack.Screen name="Login" component={LoginScreen} options={{ headerShown: false }} />
+        <Stack.Screen
+          name="Login"
+          component={LoginScreen}
+          options={{ headerShown: false }}
+        />
       </Stack.Navigator>
     );
   }
 
   return (
     <Stack.Navigator>
-      <Stack.Screen name="Captaciones" component={CaptacionesListScreen} />
-      <Stack.Screen name="NuevaCaptacion" component={CaptacionCreateWizard} options={{ title: "Nueva Captación" }} />
-      <Stack.Screen name="CasoDetalle" component={CasoDetalleScreen} options={{ title: "Detalle Caso" }} />
+      <Stack.Screen
+        name="Captaciones"
+        component={CaptacionesListScreen}
+        options={{ headerShown: false }}
+      />
 
-      <Stack.Screen name="FotosCaptacion" component={FotosCaptacionScreen} options={{ title: "Fotos Captación" }} />
-      <Stack.Screen name="TomarFoto" component={TomarFotoScreen} options={{ title: "Tomar Foto" }} />
+      <Stack.Screen
+        name="NuevaCaptacion"
+        component={CaptacionCreateWizard}
+        options={{ title: "Nueva Captación" }}
+      />
+
+      <Stack.Screen
+        name="CasoDetalle"
+        component={CasoDetalleScreen}
+        options={{ title: "Detalle Caso" }}
+      />
+
+      <Stack.Screen
+        name="FotosCaptacion"
+        component={FotosCaptacionScreen}
+        options={{ title: "Fotos Captación" }}
+      />
+
+      <Stack.Screen
+        name="TomarFoto"
+        component={TomarFotoScreen}
+        options={{ title: "Tomar Foto" }}
+      />
+
+      {/* ✅ ESTA ES LA QUE TE FALTABA */}
+      <Stack.Screen
+        name="PDFCasoScreen"
+        component={PDFCasoScreen}
+        options={{ title: "PDF (con fotos)" }}
+      />
     </Stack.Navigator>
   );
 }

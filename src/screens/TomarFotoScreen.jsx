@@ -1,10 +1,14 @@
+// src/screens/TomarFotoScreen.js
 import React, { useEffect, useMemo, useState } from "react";
 import { View } from "react-native";
-import { Button, Card, Menu, Text } from "react-native-paper";
+import { Button, Card, Menu, Text, TextInput } from "react-native-paper";
 import { CameraView, useCameraPermissions } from "expo-camera";
-import { BASE_URL } from "../../api/client";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import * as FileSystem from "expo-file-system/legacy"; // ✅ NO legacy
+import * as ImagePicker from "expo-image-picker";
+import * as ImageManipulator from "expo-image-manipulator";
+
+import { BASE_URL } from "../../api/client";
+import { enqueueUpload, processQueue } from "../mobile/uploads/uploadQueue";
 
 const PARTES = [
   "FACHADA",
@@ -24,20 +28,31 @@ const PARTES = [
 ];
 
 function prettyParte(p) {
-  return p.replaceAll("_", " ");
+  return String(p || "OTRO").replaceAll("_", " ");
 }
 
-export async function uploadPhotoBase64({ casoId, parteCasa, photoUri }) {
+// ✅ comprime + devuelve base64 para evitar 413
+async function compressToBase64(photoUri) {
+  const manipulated = await ImageManipulator.manipulateAsync(
+    photoUri,
+    [{ resize: { width: 1600 } }],
+    {
+      compress: 0.7,
+      format: ImageManipulator.SaveFormat.JPEG,
+      base64: true,
+    }
+  );
+
+  if (!manipulated?.base64) throw new Error("No se pudo generar base64");
+  return manipulated.base64;
+}
+
+// ✅ función de subida usada por cola también
+export async function uploadPhotoBase64({ casoId, parteCasa, photoUri, titulo }) {
   const token = await AsyncStorage.getItem("token");
   if (!token) throw new Error("No hay token");
 
-  const info = await FileSystem.getInfoAsync(photoUri);
-  if (!info.exists) throw new Error("La foto no existe en el dispositivo");
-  if (!info.size || info.size <= 0) throw new Error("La foto quedó en 0 bytes");
-
-  const base64 = await FileSystem.readAsStringAsync(photoUri, {
-    encoding: FileSystem.EncodingType.Base64,
-  });
+  const base64 = await compressToBase64(photoUri);
 
   const res = await fetch(`${BASE_URL}/casos/${casoId}/fotos-base64`, {
     method: "POST",
@@ -50,22 +65,24 @@ export async function uploadPhotoBase64({ casoId, parteCasa, photoUri }) {
       filename: `foto_${Date.now()}.jpg`,
       mimeType: "image/jpeg",
       base64,
+      titulo: titulo ? String(titulo).trim() : null,
     }),
   });
 
   const json = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(json?.message || `Error subiendo foto (${res.status})`);
-
   return json;
 }
 
 export default function TomarFotoScreen({ route, navigation }) {
-  const { casoId, parteCasa: parteCasaParam } = route.params;
+  const { casoId, parteCasa: parteCasaParam, titulo: tituloParam } = route.params;
 
   const [permission, requestPermission] = useCameraPermissions();
   const [menuVisible, setMenuVisible] = useState(false);
   const [parteCasa, setParteCasa] = useState(parteCasaParam || "FACHADA");
   const [cameraRef, setCameraRef] = useState(null);
+
+  const [comentario, setComentario] = useState(tituloParam || "");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
@@ -82,19 +99,82 @@ export default function TomarFotoScreen({ route, navigation }) {
       if (!cameraRef) throw new Error("Cámara no lista");
 
       const photo = await cameraRef.takePictureAsync({
-        quality: 0.6,          // 👈 baja un poco por si acaso
+        quality: 0.8,
         skipProcessing: true,
       });
 
       if (!photo?.uri) throw new Error("No se obtuvo uri de foto");
 
-      console.log("PHOTO URI:", photo.uri, "PARTE:", parteCasa, "CASO:", casoId);
-
-      await uploadPhotoBase64({ casoId, parteCasa, photoUri: photo.uri });
-
-      navigation.goBack();
+      try {
+        await uploadPhotoBase64({
+          casoId,
+          parteCasa,
+          photoUri: photo.uri,
+          titulo: comentario,
+        });
+        await processQueue();
+        navigation.goBack();
+      } catch (e) {
+        await enqueueUpload({
+          casoId,
+          parteCasa,
+          photoUri: photo.uri,
+          createdAt: Date.now(),
+          titulo: comentario,
+        });
+        setError("Falló subida. Quedó en cola y se subirá automáticamente.");
+      }
     } catch (e) {
       setError(e?.message || "No se pudo tomar/subir la foto");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const pickFromGallery = async () => {
+    setError("");
+    setBusy(true);
+    try {
+      const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!perm.granted) throw new Error("Permiso de galería denegado");
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsMultipleSelection: true,
+        quality: 1, // da igual, igual comprimimos
+      });
+
+      if (result.canceled) return;
+
+      const assets = result.assets || [];
+      if (!assets.length) throw new Error("No se seleccionaron fotos");
+
+      for (const a of assets) {
+        if (!a?.uri) continue;
+
+        try {
+          await uploadPhotoBase64({
+            casoId,
+            parteCasa,
+            photoUri: a.uri,
+            titulo: comentario,
+          });
+        } catch (e) {
+          await enqueueUpload({
+            casoId,
+            parteCasa,
+            photoUri: a.uri,
+            createdAt: Date.now(),
+            titulo: comentario,
+          });
+          setError("Falló una subida. Quedó en cola y se subirá automáticamente.");
+        }
+      }
+
+      await processQueue();
+      navigation.goBack();
+    } catch (e) {
+      setError(e?.message || "No se pudo seleccionar/subir desde galería");
     } finally {
       setBusy(false);
     }
@@ -155,6 +235,16 @@ export default function TomarFotoScreen({ route, navigation }) {
             ))}
           </Menu>
 
+          <TextInput
+            mode="outlined"
+            label="Comentario (opcional)"
+            value={comentario}
+            onChangeText={setComentario}
+            style={{ marginTop: 12 }}
+            placeholder='Ej: "Daño en escalera, escalón 5 y 6"'
+            multiline
+          />
+
           {!!error && <Text style={{ marginTop: 10, color: "#B00020" }}>{error}</Text>}
 
           <Button
@@ -166,6 +256,17 @@ export default function TomarFotoScreen({ route, navigation }) {
             onPress={takePhoto}
           >
             Tomar y subir foto
+          </Button>
+
+          <Button
+            mode="outlined"
+            icon="image"
+            style={{ marginTop: 10 }}
+            loading={busy}
+            disabled={busy}
+            onPress={pickFromGallery}
+          >
+            Elegir desde galería
           </Button>
 
           <Button mode="text" style={{ marginTop: 6 }} onPress={() => navigation.goBack()}>
