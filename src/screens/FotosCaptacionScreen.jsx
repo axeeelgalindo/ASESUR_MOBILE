@@ -130,7 +130,7 @@ export default function FotosCaptacionScreen({ route, navigation }) {
   }, [grouped]);
 
   const faltantes = useMemo(() => PARTES.filter((p) => (counts[p] || 0) < 1), [counts]);
-  const allOk = faltantes.length === 0;
+  const allOk = fotos.length >= 1;
 
   const openCamera = (parteCasa) => {
     // mandamos el comentario draft como titulo (se guarda al subir foto)
@@ -266,7 +266,7 @@ export default function FotosCaptacionScreen({ route, navigation }) {
                 <View className="flex-1">
                   <Text className="text-[14px] font-extrabold uppercase tracking-wide text-red-700 mb-1">Evidencia Incompleta</Text>
                   <Text className="text-red-600 text-[13px] font-medium leading-tight">
-                    Faltan fotos requeridas en: <Text className="font-bold">{faltantes.slice(0, 3).map(prettyParte).join(", ")}{faltantes.length > 3 ? "..." : ""}</Text>.
+                    Debes capturar al menos <Text className="font-bold">1 foto</Text> para poder finalizar la captación y enviarla a Visto Bueno.
                   </Text>
                 </View>
               </View>
@@ -274,9 +274,9 @@ export default function FotosCaptacionScreen({ route, navigation }) {
               <View className="flex-row items-center gap-4 rounded-2xl border border-green-200 bg-green-50 p-4 shadow-sm" style={{ elevation: 1 }}>
                 <MaterialIcons name="check-circle" size={28} color="#15803d" />
                 <View className="flex-1">
-                  <Text className="text-[14px] font-extrabold uppercase tracking-wide text-green-800 mb-0.5">¡Evidencia Completa!</Text>
+                  <Text className="text-[14px] font-extrabold uppercase tracking-wide text-green-800 mb-0.5">Captación Lista</Text>
                   <Text className="text-green-700 font-medium text-[13px] leading-tight">
-                    Tienes al menos 1 foto en cada parte requerida.
+                    Ya puedes finalizar la captación. ({fotos.length} foto/s capturadas)
                   </Text>
                 </View>
               </View>
@@ -454,15 +454,16 @@ export default function FotosCaptacionScreen({ route, navigation }) {
               style={allOk ? { elevation: 4, shadowColor: '#1152d4', shadowOpacity: 0.3, shadowRadius: 8, shadowOffset: { width: 0, height: 4 } } : {}}
               onPress={async () => {
                 setError("");
-                if (me?.rol === "ASESOR" && autoPre) {
-                  try {
+                try {
+                  await api.patch(`/casos/${casoId}`, { estado: "PENDIENTE_AUTORIZACION" });
+
+                  if (me?.rol === "ASESOR" && autoPre) {
                     await api.post(`/pre-siniestro/${casoId}/vb-desde-captacion`);
-                  } catch (e) {
-                    Alert.alert("Error", e?.response?.data?.message || e?.response?.data?.error || "No se pudo pasar a PRE-SINIESTRO");
-                    return;
                   }
+                  navigation.replace("CasoDetalle", { id: casoId });
+                } catch (e) {
+                  Alert.alert("Error", e?.response?.data?.message || e?.response?.data?.error || "Error al finalizar captación");
                 }
-                navigation.replace("CasoDetalle", { id: casoId });
               }}
             >
               <Text className={allOk ? "text-white font-extrabold text-[15px]" : "text-slate-400 font-bold text-[15px]"}>
