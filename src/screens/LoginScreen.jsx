@@ -6,7 +6,7 @@ import { MaterialIcons } from '@expo/vector-icons';
 export default function LoginScreen() {
   const { signIn } = useAuth();
   const [email, setEmail] = useState("juan@juan.cl");
-  const [password, setPassword] = useState("juan123");
+  const [password, setPassword] = useState("123");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [showPassword, setShowPassword] = useState(false);

@@ -194,14 +194,66 @@ export default function CaptacionCreateWizard({ navigation }) {
       let reverse = await Location.reverseGeocodeAsync({ latitude, longitude });
       if (reverse.length > 0) {
         const item = reverse[0];
-        setDireccion(item.street || item.name || "");
-        setNumeroCalle(item.streetNumber || "");
-        if (item.region) {
-          const cleanInput = item.region.toLowerCase().replace(/region de |region del /g, "").trim();
-          const matchRegion = regiones.find(r => r.name.toLowerCase().replace(/region de |region del /g, "").trim().includes(cleanInput));
-          if (matchRegion) setRegion(matchRegion.name);
+        
+        let parsedNumber = item.streetNumber || "";
+        let parsedStreet = item.street || item.name || "";
+        
+        // Si no hay streetNumber pero el name contiene números al final
+        if (!parsedNumber && item.name) {
+          const match = item.name.match(/(.+?)\s+(\d+)$/);
+          if (match) {
+            parsedStreet = match[1];
+            parsedNumber = match[2];
+          }
         }
-        if (item.city || item.subregion) setComuna(item.city || item.subregion);
+        
+        setDireccion(parsedStreet);
+        setNumeroCalle(parsedNumber);
+
+        const normalizeStr = (str) => 
+          (str || "").toLowerCase()
+            .normalize("NFD")
+            .replace(/[\u0300-\u036f]/g, "") // Quitar acentos
+            .replace(/region de |region del |region /g, "") // Quitar prefijos comunes
+            .trim();
+
+        let matchedRegionName = "";
+        if (item.region) {
+          const cleanInput = normalizeStr(item.region);
+          const matchRegion = regiones.find(r => {
+            const cleanR = normalizeStr(r.name);
+            return cleanInput.includes(cleanR) || cleanR.includes(cleanInput);
+          });
+          if (matchRegion) {
+            matchedRegionName = matchRegion.name;
+            setRegion(matchRegion.name);
+          }
+        }
+
+        const rawComuna = item.city || item.subregion || item.district || "";
+        if (rawComuna) {
+          const cleanComunaInput = normalizeStr(rawComuna);
+          // Si tenemos la región ya detectada, buscar de preferencia en esa región, de lo contrario en todas
+          const searchRegionObj = matchedRegionName ? regiones.find(r => r.name === matchedRegionName) : null;
+          const searchIn = searchRegionObj ? searchRegionObj.communes : regiones.flatMap(r => r.communes);
+          
+          const matchComuna = searchIn.find(c => {
+            const cleanC = normalizeStr(c.name);
+            return cleanComunaInput.includes(cleanC) || cleanC.includes(cleanComunaInput);
+          });
+          
+          if (matchComuna) {
+            setComuna(matchComuna.name);
+            // Si no teníamos la región pero encontramos la comuna, asignar la región de esa comuna
+            if (!matchedRegionName) {
+              const parentRegion = regiones.find(r => r.communes.some(c => c.name === matchComuna.name));
+              if (parentRegion) setRegion(parentRegion.name);
+            }
+          } else {
+            // Fallback con primera letra mayúscula
+            setComuna(rawComuna.charAt(0).toUpperCase() + rawComuna.slice(1));
+          }
+        }
       }
     } catch (e) {
       setError("No se pudo obtener la ubicación. Verifique su GPS.");
@@ -463,8 +515,25 @@ export default function CaptacionCreateWizard({ navigation }) {
       <SelectorModal visible={modalOccDayVisible} title="Día Ocurrencia" data={DAYS} value={occDay} onSelect={setOccDay} onClose={() => setModalOccDayVisible(false)} />
       <SelectorModal visible={modalOccMonthVisible} title="Mes Ocurrencia" data={MONTHS} value={occMonth} onSelect={setOccMonth} onClose={() => setModalOccMonthVisible(false)} isMonth />
       <SelectorModal visible={modalOccYearVisible} title="Año Ocurrencia" data={YEARS} value={occYear} onSelect={setOccYear} onClose={() => setModalOccYearVisible(false)} />
-      <SelectorModal visible={modalRegionVisible} title="Región" data={regiones.map(r => r.name)} value={region} onSelect={(val) => { setRegion(val); setComuna(""); }} onClose={() => setModalRegionVisible(false)} />
-      <SelectorModal visible={modalComunaVisible} title="Comuna" data={regiones.find(r => r.name === region)?.communes || []} value={comuna} onSelect={setComuna} onClose={() => setModalComunaVisible(false)} />
+      <SelectorModal 
+        visible={modalRegionVisible} 
+        title="Región" 
+        data={regiones.map(r => r.name)} 
+        value={region} 
+        onSelect={(val) => { 
+          if (val !== region) {
+            setRegion(val);
+            // Solo borrar la comuna si no pertenece a la nueva región
+            const newRegionObj = regiones.find(r => r.name === val);
+            const hasCommune = newRegionObj?.communes.some(c => c.name === comuna);
+            if (!hasCommune) {
+              setComuna("");
+            }
+          }
+        }} 
+        onClose={() => setModalRegionVisible(false)} 
+      />
+      <SelectorModal visible={modalComunaVisible} title="Comuna" data={regiones.find(r => r.name === region)?.communes.map(c => c.name) || []} value={comuna} onSelect={setComuna} onClose={() => setModalComunaVisible(false)} />
     </SafeAreaView>
   );
 }
@@ -481,12 +550,20 @@ function SelectorModal({ visible, title, data, value, onSelect, onClose, isMonth
           <FlatList
             data={data}
             keyExtractor={(it) => it.id || it}
-            renderItem={({ item }) => (
-              <TouchableOpacity className={`py-4 px-6 border-b border-slate-50 flex-row justify-between ${value === (item.name || item.id || item) ? 'bg-blue-50' : ''}`} onPress={() => { onSelect(item.name || item.id || item); onClose(); }}>
-                <Text className={`text-base ${(item.name || item.id || item) === value ? 'font-bold text-[#1152d4]' : 'text-slate-700'}`}>{item.name || item}</Text>
-                {(item.name || item.id || item) === value && <MaterialIcons name="check" size={20} color="#1152d4" />}
-              </TouchableOpacity>
-            )}
+            renderItem={({ item }) => {
+              const itemValue = item.id && isMonth ? item.id : (item.name || item);
+              const itemLabel = item.name || item;
+              const isSelected = itemValue === value;
+              return (
+                <TouchableOpacity 
+                  className={`py-4 px-6 border-b border-slate-50 flex-row justify-between ${isSelected ? 'bg-blue-50' : ''}`} 
+                  onPress={() => { onSelect(itemValue); onClose(); }}
+                >
+                  <Text className={`text-base ${isSelected ? 'font-bold text-[#1152d4]' : 'text-slate-700'}`}>{itemLabel}</Text>
+                  {isSelected && <MaterialIcons name="check" size={20} color="#1152d4" />}
+                </TouchableOpacity>
+              );
+            }}
           />
         </View>
       </View>

@@ -89,7 +89,7 @@ export default function CaptacionesListScreen({ navigation }) {
   // 3. Aplicar filtro triple localmente (Región, Comuna, Dirección)
   const filteredItems = useMemo(() => {
     return items.filter(i => {
-      if (activeRegion && i.ciudad?.trim() !== activeRegion) return false;
+      if (activeRegion && i.region?.trim() !== activeRegion) return false;
       if (activeComuna && i.comuna?.trim() !== activeComuna) return false;
       if (searchDireccion) {
         const direccionLower = searchDireccion.toLowerCase();
@@ -181,7 +181,7 @@ export default function CaptacionesListScreen({ navigation }) {
                   {item.direccion?.trim() || "Dirección no especificada"}
                 </Text>
                 <Text className="text-[11px] font-medium uppercase tracking-wide" style={{ color: "rgba(180, 83, 9, 0.8)" }} numberOfLines={1}>
-                  {item.comuna?.trim() || "Sin comuna"} {item.ciudad ? `• ${item.ciudad}` : ""}
+                  {item.comuna?.trim() || "Sin comuna"} {item.region ? `• ${item.region}` : ""}
                 </Text>
               </View>
             </View>

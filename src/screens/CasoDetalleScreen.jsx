@@ -400,9 +400,9 @@ export default function CasoDetalleScreen({ route, navigation }) {
                     <Text className="text-[14px] font-bold text-slate-800 leading-tight mb-1">
                       {caso?.direccion || "No especificada"}
                     </Text>
-                    {(caso?.comuna || caso?.ciudad) && (
+                    {(caso?.comuna || caso?.region) && (
                       <Text className="text-[12px] font-semibold text-rose-600 uppercase tracking-wider">
-                        {caso?.comuna || "-"} {caso?.ciudad ? `• ${caso.ciudad}` : ""}
+                        {caso?.comuna || "-"} {caso?.region ? `• ${caso.region}` : ""}
                       </Text>
                     )}
                   </View>
