@@ -1,7 +1,6 @@
 // src/screens/FotosCaptacionScreen.js
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { Image, ScrollView, View, Pressable, Alert, AppState, SafeAreaView, TouchableOpacity, TextInput, ActivityIndicator, KeyboardAvoidingView, Platform } from "react-native";
-import { Text } from "react-native-paper";
+import { Image, ScrollView, View, Pressable, Alert, AppState, SafeAreaView, TouchableOpacity, TextInput, ActivityIndicator, KeyboardAvoidingView, Platform, Text } from "react-native";
 import { MaterialIcons } from '@expo/vector-icons';
 import ImageViewing from "react-native-image-viewing";
 import { api, PUBLIC_URL } from "../../api/client";
@@ -62,6 +61,7 @@ export default function FotosCaptacionScreen({ route, navigation }) {
   const [busy, setBusy] = useState(true);
   const [error, setError] = useState("");
   const [fotos, setFotos] = useState([]);
+  const [caso, setCaso] = useState(null);
 
   // comentario (draft) por parte + guardando estado por parte
   const [comentarioPorParte, setComentarioPorParte] = useState({});
@@ -76,9 +76,13 @@ export default function FotosCaptacionScreen({ route, navigation }) {
     setError("");
     setBusy(true);
     try {
-      const res = await api.get(`/casos/${casoId}/fotos`);
-      const list = res.data?.fotos || [];
+      const [resFotos, resCaso] = await Promise.all([
+        api.get(`/casos/${casoId}/fotos`),
+        api.get(`/casos/${casoId}`),
+      ]);
+      const list = resFotos.data?.fotos || [];
       setFotos(list);
+      setCaso(resCaso?.data?.caso || resCaso?.data || null);
 
       // inicializa draft con último comentario guardado por parte (solo si no existe)
       const groupedTmp = groupByParte(list);
@@ -131,6 +135,17 @@ export default function FotosCaptacionScreen({ route, navigation }) {
 
   const faltantes = useMemo(() => PARTES.filter((p) => (counts[p] || 0) < 1), [counts]);
   const allOk = fotos.length >= 1;
+
+  const pendingInspectionGestion = useMemo(() => {
+    if (!caso || !caso.gestiones) return null;
+    return caso.gestiones.find(
+      (g) => g.tipo === "INSPECCION" && g.estado !== "COMPLETADA"
+    );
+  }, [caso]);
+
+  const esInspeccion = useMemo(() => {
+    return !!pendingInspectionGestion || caso?.estado === "INSPECCION";
+  }, [pendingInspectionGestion, caso]);
 
   const openCamera = (parteCasa) => {
     // mandamos el comentario draft como titulo (se guarda al subir foto)
@@ -234,7 +249,9 @@ export default function FotosCaptacionScreen({ route, navigation }) {
               <MaterialIcons name="arrow-back" size={20} color="#334155" />
             </TouchableOpacity>
             <View>
-              <Text className="text-lg font-extrabold tracking-tight text-slate-900">Fotos Captación</Text>
+              <Text className="text-lg font-extrabold tracking-tight text-slate-900">
+                {esInspeccion ? "Fotos Inspección" : "Fotos Captación"}
+              </Text>
               <Text className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Gestor de Evidencia</Text>
             </View>
           </View>
@@ -257,46 +274,48 @@ export default function FotosCaptacionScreen({ route, navigation }) {
           )}
 
           {/* Warning/Status Box */}
-          <View className="px-4 pt-5 pb-2">
-            {!allOk ? (
-              <View className="flex-row items-start gap-4 rounded-2xl border border-red-200 bg-red-50 p-4 shadow-sm" style={{ elevation: 1 }}>
-                <View className="mt-0.5">
-                  <MaterialIcons name="error" size={26} color="#dc2626" />
+          {!esInspeccion && (
+            <View className="px-4 pt-5 pb-2">
+              {!allOk ? (
+                <View className="flex-row items-start gap-4 rounded-2xl border border-red-200 bg-red-50 p-4 shadow-sm" style={{ elevation: 1 }}>
+                  <View className="mt-0.5">
+                    <MaterialIcons name="error" size={26} color="#dc2626" />
+                  </View>
+                  <View className="flex-1">
+                    <Text className="text-[14px] font-extrabold uppercase tracking-wide text-red-700 mb-1">Evidencia Incompleta</Text>
+                    <Text className="text-red-600 text-[13px] font-medium leading-tight">
+                      Debes capturar al menos <Text className="font-bold">1 foto</Text> para poder finalizar la captación y enviarla a Visto Bueno.
+                    </Text>
+                  </View>
                 </View>
-                <View className="flex-1">
-                  <Text className="text-[14px] font-extrabold uppercase tracking-wide text-red-700 mb-1">Evidencia Incompleta</Text>
-                  <Text className="text-red-600 text-[13px] font-medium leading-tight">
-                    Debes capturar al menos <Text className="font-bold">1 foto</Text> para poder finalizar la captación y enviarla a Visto Bueno.
-                  </Text>
+              ) : (
+                <View className="flex-row items-center gap-4 rounded-2xl border border-green-200 bg-green-50 p-4 shadow-sm" style={{ elevation: 1 }}>
+                  <MaterialIcons name="check-circle" size={28} color="#15803d" />
+                  <View className="flex-1">
+                    <Text className="text-[14px] font-extrabold uppercase tracking-wide text-green-800 mb-0.5">Captación Lista</Text>
+                    <Text className="text-green-700 font-medium text-[13px] leading-tight">
+                      Ya puedes finalizar la captación. ({fotos.length} foto/s capturadas)
+                    </Text>
+                  </View>
                 </View>
-              </View>
-            ) : (
-              <View className="flex-row items-center gap-4 rounded-2xl border border-green-200 bg-green-50 p-4 shadow-sm" style={{ elevation: 1 }}>
-                <MaterialIcons name="check-circle" size={28} color="#15803d" />
-                <View className="flex-1">
-                  <Text className="text-[14px] font-extrabold uppercase tracking-wide text-green-800 mb-0.5">Captación Lista</Text>
-                  <Text className="text-green-700 font-medium text-[13px] leading-tight">
-                    Ya puedes finalizar la captación. ({fotos.length} foto/s capturadas)
-                  </Text>
-                </View>
-              </View>
-            )}
+              )}
 
-            {me?.rol === "ASESOR" && (
-              <TouchableOpacity
-                className="mt-4 flex-row items-center gap-3 bg-white p-4 rounded-2xl border border-slate-200 shadow-sm"
-                style={{ elevation: 1 }}
-                onPress={() => setAutoPre(!autoPre)}
-                activeOpacity={0.8}
-              >
-                <MaterialIcons name={autoPre ? "check-box" : "check-box-outline-blank"} size={26} color={autoPre ? "#1152d4" : "#94a3b8"} />
-                <View className="flex-1">
-                  <Text className="text-slate-700 text-[14px] font-semibold">Autorizar paso automático</Text>
-                  <Text className="text-slate-400 text-[11px] font-bold uppercase tracking-wider mt-0.5">Cambiar a Pre-Siniestro al finalizar</Text>
-                </View>
-              </TouchableOpacity>
-            )}
-          </View>
+              {me?.rol === "ASESOR" && (
+                <TouchableOpacity
+                  className="mt-4 flex-row items-center gap-3 bg-white p-4 rounded-2xl border border-slate-200 shadow-sm"
+                  style={{ elevation: 1 }}
+                  onPress={() => setAutoPre(!autoPre)}
+                  activeOpacity={0.8}
+                >
+                  <MaterialIcons name={autoPre ? "check-box" : "check-box-outline-blank"} size={26} color={autoPre ? "#1152d4" : "#94a3b8"} />
+                  <View className="flex-1">
+                    <Text className="text-slate-700 text-[14px] font-semibold">Autorizar paso automático</Text>
+                    <Text className="text-slate-400 text-[11px] font-bold uppercase tracking-wider mt-0.5">Cambiar a Pre-Siniestro al finalizar</Text>
+                  </View>
+                </TouchableOpacity>
+              )}
+            </View>
+          )}
 
           {PARTES.map((p) => {
             const list = grouped[p] || [];
@@ -448,30 +467,67 @@ export default function FotosCaptacionScreen({ route, navigation }) {
         <View className="absolute bottom-0 left-0 right-0 bg-white border-t border-slate-200 px-4 pt-3 pb-6 z-50 shadow-[0_-8px_10px_-4px_rgb(0,0,0,0.05)]">
           <View className="w-full">
             <TouchableOpacity
-              className={`w-full h-[54px] rounded-2xl flex-row items-center justify-center gap-3 shadow-sm ${allOk ? 'bg-[#1152d4]' : 'bg-slate-200'}`}
-              disabled={!allOk}
+              className={`w-full h-[54px] rounded-2xl flex-row items-center justify-center gap-3 shadow-sm ${(allOk || esInspeccion) ? (esInspeccion ? 'bg-emerald-600' : 'bg-[#1152d4]') : 'bg-slate-200'}`}
+              disabled={!allOk && !esInspeccion}
               activeOpacity={0.8}
-              style={allOk ? { elevation: 4, shadowColor: '#1152d4', shadowOpacity: 0.3, shadowRadius: 8, shadowOffset: { width: 0, height: 4 } } : {}}
+              style={(allOk || esInspeccion) ? { elevation: 4, shadowColor: esInspeccion ? '#059669' : '#1152d4', shadowOpacity: 0.3, shadowRadius: 8, shadowOffset: { width: 0, height: 4 } } : {}}
               onPress={async () => {
                 setError("");
-                try {
-                  await api.patch(`/casos/${casoId}`, { estado: "PENDIENTE_AUTORIZACION" });
-
-                  if (me?.rol === "ASESOR" && autoPre) {
-                    await api.post(`/pre-siniestro/${casoId}/vb-desde-captacion`);
+                if (esInspeccion) {
+                  if (!pendingInspectionGestion) {
+                    Alert.alert("Error", "No se encontró una gestión de inspección pendiente para este caso.");
+                    return;
                   }
-                  navigation.replace("CasoDetalle", { id: casoId });
-                } catch (e) {
-                  Alert.alert("Error", e?.response?.data?.message || e?.response?.data?.error || "Error al finalizar captación");
+                  Alert.alert(
+                    "Terminar Inspección",
+                    "¿Estás seguro de que deseas finalizar la inspección de este caso? Se generará la Ficha de Inspección Word automáticamente con toda la información y fotos registradas.",
+                    [
+                      { text: "Cancelar", style: "cancel" },
+                      {
+                        text: "Finalizar",
+                        style: "default",
+                        onPress: async () => {
+                          try {
+                            await api.post(`/siniestros/${casoId}/gestiones/${pendingInspectionGestion.id}/completar`, {
+                              observaciones: "Inspección completada desde aplicación móvil",
+                            });
+                            Alert.alert("Éxito", "La inspección ha sido finalizada y la Ficha de Inspección se ha guardado correctamente.");
+                            navigation.replace("CasoDetalle", { id: casoId });
+                          } catch (e) {
+                            Alert.alert(
+                              "Error",
+                              e?.response?.data?.error ||
+                              e?.response?.data?.message ||
+                              "No se pudo completar la inspección."
+                            );
+                          }
+                        }
+                      }
+                    ]
+                  );
+                } else {
+                  try {
+                    await api.patch(`/casos/${casoId}`, { estado: "PENDIENTE_AUTORIZACION" });
+
+                    if (me?.rol === "ASESOR" && autoPre) {
+                      await api.post(`/pre-siniestro/${casoId}/vb-desde-captacion`);
+                    }
+                    navigation.replace("CasoDetalle", { id: casoId });
+                  } catch (e) {
+                    Alert.alert("Error", e?.response?.data?.message || e?.response?.data?.error || "Error al finalizar captación");
+                  }
                 }
               }}
             >
-              <Text className={allOk ? "text-white font-extrabold text-[15px]" : "text-slate-400 font-bold text-[15px]"}>
-                Finalizar Captación
+              <Text
+                className={(allOk || esInspeccion) ? "uppercase text-lg font-bold tracking-wide" : "text-lg font-bold tracking-wide"}
+                style={{ color: "#ffffff" }}
+              >
+                {esInspeccion ? "Finalizar inspección" : "Finalizar captación"}
               </Text>
-              <MaterialIcons name="task-alt" size={20} color={allOk ? "white" : "#94a3b8"} />
+              <MaterialIcons name="task-alt" size={20} color="#ffffff" />
             </TouchableOpacity>
-            {!allOk && (
+            {!allOk && !esInspeccion && (
               <Text className="text-center text-[10px] text-slate-400 mt-2 uppercase tracking-widest font-bold">
                 Completa las fotos obligatorias para finalizar
               </Text>

@@ -83,6 +83,42 @@ export default function CasoDetalleScreen({ route, navigation }) {
 
   // document upload (inspector)
   const [uploadingDoc, setUploadingDoc] = useState(false);
+  const [completingInspection, setCompletingInspection] = useState(false);
+
+  const terminarInspeccion = async () => {
+    if (!pendingInspectionGestion) return;
+
+    Alert.alert(
+      "Terminar Inspección",
+      "¿Estás seguro de que deseas finalizar la inspección de este caso? Se generará la Ficha de Inspección Word automáticamente con toda la información y fotos registradas.",
+      [
+        { text: "Cancelar", style: "cancel" },
+        {
+          text: "Finalizar",
+          style: "default",
+          onPress: async () => {
+            setCompletingInspection(true);
+            try {
+              await api.post(`/siniestros/${casoId}/gestiones/${pendingInspectionGestion.id}/completar`, {
+                observaciones: "Inspección completada desde aplicación móvil",
+              });
+              Alert.alert("Éxito", "La inspección ha sido finalizada y la Ficha de Inspección se ha guardado correctamente.");
+              await load();
+            } catch (e) {
+              Alert.alert(
+                "Error",
+                e?.response?.data?.error ||
+                e?.response?.data?.message ||
+                "No se pudo completar la inspección."
+              );
+            } finally {
+              setCompletingInspection(false);
+            }
+          }
+        }
+      ]
+    );
+  };
 
   const pickAndUploadInspectionDocument = async () => {
     try {
@@ -161,6 +197,25 @@ export default function CasoDetalleScreen({ route, navigation }) {
     [grouped]
   );
   const totalFotos = useMemo(() => fotos?.length || 0, [fotos]);
+
+  const pendingInspectionGestion = useMemo(() => {
+    if (!caso || !caso.gestiones) return null;
+    return caso.gestiones.find(
+      (g) => g.tipo === "INSPECCION" && g.estado !== "COMPLETADA"
+    );
+  }, [caso]);
+
+  const canCompleteInspection = useMemo(() => {
+    if (!caso || !pendingInspectionGestion) return false;
+    const myId = me?.id || me?.sub || me?.userId;
+    const isAssignedInspector = caso.inspectorId === myId;
+    const hasRolePermission = ["INSPECTOR", "OPERACIONES", "SUPERADMIN", "MASTER"].includes(me?.rol);
+    return isAssignedInspector || hasRolePermission;
+  }, [caso, pendingInspectionGestion, me]);
+
+  const esInspeccion = useMemo(() => {
+    return caso?.estado === "INSPECCION" || caso?.etapa === "SINIESTRO";
+  }, [caso]);
 
   const openViewer = (parteCasa, startIdx) => {
     const list = (grouped[parteCasa] || []).map((f) => ({
@@ -447,18 +502,42 @@ export default function CasoDetalleScreen({ route, navigation }) {
               </View>
             )}
 
+            {/* Botón de Terminar Inspección 
+            {canCompleteInspection && (
+              <View className="mb-4 mt-2">
+                <TouchableOpacity
+                  className="w-full h-[60px] bg-emerald-500 rounded-2xl flex-row items-center justify-center gap-3 relative overflow-hidden"
+                  style={{ elevation: 6, shadowColor: '#10b981', shadowOpacity: 0.35, shadowRadius: 12, shadowOffset: { width: 0, height: 6 } }}
+                  activeOpacity={0.85}
+                  onPress={terminarInspeccion}
+                  disabled={completingInspection}
+                >
+                  <View className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-10 -mt-10" />
+                  {completingInspection ? (
+                    <ActivityIndicator color="white" />
+                  ) : (
+                    <MaterialIcons name="check-circle" size={26} color="white" />
+                  )}
+                  <Text className="text-white font-extrabold text-[17px] tracking-wide">
+                    {completingInspection ? "Finalizando..." : "Terminar inspección"}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            )}
+              */}
+
             {/* Action Button Prominente */}
             <View className="mb-8 mt-2">
               <TouchableOpacity
-                className="w-full h-[60px] bg-[#1152d4] rounded-2xl flex-row items-center justify-center gap-3 relative overflow-hidden"
-                style={{ elevation: 6, shadowColor: '#1152d4', shadowOpacity: 0.35, shadowRadius: 12, shadowOffset: { width: 0, height: 6 } }}
+                className={`w-full h-[60px] rounded-2xl flex-row items-center justify-center gap-3 relative overflow-hidden ${esInspeccion ? 'bg-emerald-600' : 'bg-[#1152d4]'}`}
+                style={{ elevation: 6, shadowColor: esInspeccion ? '#059669' : '#1152d4', shadowOpacity: 0.35, shadowRadius: 12, shadowOffset: { width: 0, height: 6 } }}
                 activeOpacity={0.85}
                 onPress={() => navigation.navigate("FotosCaptacion", { casoId })}
               >
-                {/* Decorative background glow */}
-                <View className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-10 -mt-10" />
+                <Text className="text-white text-[17px] tracking-wide">
+                  {esInspeccion ? "Gestionar inspección" : "Gestionar captación"}
+                </Text>
                 <MaterialIcons name="photo-camera" size={26} color="white" />
-                <Text className="text-white font-extrabold text-[17px] tracking-wide">Gestionar Fotos Captación</Text>
               </TouchableOpacity>
             </View>
 

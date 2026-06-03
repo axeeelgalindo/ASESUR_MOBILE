@@ -6,7 +6,7 @@ import { api, PUBLIC_URL } from "../../api/client";
 import { MaterialIcons } from '@expo/vector-icons';
 import chileData from "../utils/comunas.json";
 
-const EmptyListState = ({ refreshing, error }) => {
+const EmptyListState = ({ refreshing, error, activeTab }) => {
   if (refreshing) return null;
   return (
     <View className="flex-1 justify-center px-4 py-8">
@@ -18,7 +18,9 @@ const EmptyListState = ({ refreshing, error }) => {
         <View className="bg-white border border-slate-200 rounded-2xl p-8 items-center justify-center mt-2 border-dashed">
           <MaterialIcons name="folder-open" size={48} color="#cbd5e1" />
           <Text className="text-slate-500 text-center font-medium mt-3">
-            No hay captaciones registradas en esta categoría.
+            {activeTab === "CAPTACIONES"
+              ? "No hay captaciones registradas en esta categoría."
+              : "No tienes inspecciones pendientes asignadas."}
           </Text>
         </View>
       )}
@@ -50,6 +52,7 @@ export default function CaptacionesListScreen({ navigation }) {
   const [activeRegion, setActiveRegion] = useState("");
   const [activeComuna, setActiveComuna] = useState("");
   const [searchDireccion, setSearchDireccion] = useState("");
+  const [activeTab, setActiveTab] = useState("CAPTACIONES");
 
   const [modalRegionVisible, setModalRegionVisible] = useState(false);
   const [modalComunaVisible, setModalComunaVisible] = useState(false);
@@ -57,12 +60,24 @@ export default function CaptacionesListScreen({ navigation }) {
   const load = useCallback(async () => {
     setError("");
     try {
-      const res = await api.get("/casos", { params: { etapa: "CAPTACION", page: 1, pageSize: 50 } });
+      const params = { page: 1, pageSize: 50 };
+      if (activeTab === "CAPTACIONES") {
+        params.etapa = "CAPTACION";
+      } else {
+        params.estado = "INSPECCION";
+      }
+      const res = await api.get("/casos", { params });
       setItems(res.data?.items || []);
     } catch (e) {
-      setError(e?.response?.data?.message || "No se pudieron cargar captaciones");
+      setError(e?.response?.data?.message || "No se pudieron cargar casos");
     }
-  }, []);
+  }, [activeTab]);
+
+  useEffect(() => {
+    if (me?.rol === "INSPECTOR") {
+      setActiveTab("INSPECCIONES");
+    }
+  }, [me]);
 
   useEffect(() => {
     load();
@@ -217,7 +232,9 @@ export default function CaptacionesListScreen({ navigation }) {
           >
             <MaterialIcons name="sync" size={22} color="#64748b" />
           </TouchableOpacity>
-          <Text className="text-lg font-bold tracking-tight text-slate-900">Captaciones</Text>
+          <Text className="text-lg font-bold tracking-tight text-slate-900">
+            {activeTab === "CAPTACIONES" ? "Captaciones" : "Inspecciones"}
+          </Text>
         </View>
         <View className="flex-row items-center gap-2">
           <TouchableOpacity
@@ -228,6 +245,33 @@ export default function CaptacionesListScreen({ navigation }) {
             <MaterialIcons name="logout" size={22} color="#64748b" />
           </TouchableOpacity>
         </View>
+      </View>
+
+      {/* Selector de Pestañas (Captaciones / Inspecciones) */}
+      <View className="flex-row bg-white border-b border-slate-200">
+        <TouchableOpacity
+          onPress={() => setActiveTab("CAPTACIONES")}
+          className={`flex-1 py-3 items-center border-b-2 ${activeTab === "CAPTACIONES" ? "border-blue-600" : "border-transparent"}`}
+        >
+          <View className="flex-row items-center gap-1.5">
+            <MaterialIcons name="assignment" size={18} color={activeTab === "CAPTACIONES" ? "#2563eb" : "#64748b"} />
+            <Text className={`text-sm ${activeTab === "CAPTACIONES" ? "text-blue-600 font-bold" : "text-slate-500 font-semibold"}`}>
+              Captaciones
+            </Text>
+          </View>
+        </TouchableOpacity>
+        
+        <TouchableOpacity
+          onPress={() => setActiveTab("INSPECCIONES")}
+          className={`flex-1 py-3 items-center border-b-2 ${activeTab === "INSPECCIONES" ? "border-blue-600" : "border-transparent"}`}
+        >
+          <View className="flex-row items-center gap-1.5">
+            <MaterialIcons name="engineering" size={18} color={activeTab === "INSPECCIONES" ? "#2563eb" : "#64748b"} />
+            <Text className={`text-sm ${activeTab === "INSPECCIONES" ? "text-blue-600 font-bold" : "text-slate-500 font-semibold"}`}>
+              Inspecciones
+            </Text>
+          </View>
+        </TouchableOpacity>
       </View>
 
       {/* Header del Contenido de Lista (Filtros) */}
@@ -309,7 +353,7 @@ export default function CaptacionesListScreen({ navigation }) {
         keyExtractor={(item) => String(item.id)}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
         contentContainerStyle={{ padding: 16, paddingTop: 8, paddingBottom: 80, flexGrow: 1 }}
-        ListEmptyComponent={<EmptyListState refreshing={refreshing} error={error} />}
+        ListEmptyComponent={<EmptyListState refreshing={refreshing} error={error} activeTab={activeTab} />}
         renderItem={renderItem}
       />
 
