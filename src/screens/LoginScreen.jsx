@@ -5,8 +5,8 @@ import { MaterialIcons } from '@expo/vector-icons';
 
 export default function LoginScreen() {
   const { signIn } = useAuth();
-  const [email, setEmail] = useState("juan@juan.cl");
-  const [password, setPassword] = useState("123");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -80,7 +80,7 @@ export default function LoginScreen() {
                 </View>
                 <TextInput
                   className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white h-12 px-4 focus:border-[#1152d4] dark:focus:border-blue-500"
-                  placeholder="ejemplo@correo.com"
+                  placeholder="usuario@asesur.cl"
                   placeholderTextColor="#94a3b8"
                   autoCapitalize="none"
                   keyboardType="email-address"
