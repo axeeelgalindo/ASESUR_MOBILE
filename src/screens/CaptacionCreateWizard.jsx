@@ -7,6 +7,7 @@ import { MaterialIcons } from '@expo/vector-icons';
 import chileData from "../utils/comunas.json";
 import * as Location from 'expo-location';
 import { validateRut, formatRut } from 'rut-kit';
+import bancosData from "../utils/bancos.json";
 
 const TOTAL = 6;
 
@@ -72,6 +73,8 @@ export default function CaptacionCreateWizard({ navigation }) {
   const [telefonoCliente1, setTelefonoCliente1] = useState("");
   const [telefonoCliente2, setTelefonoCliente2] = useState("");
   const [banco, setBanco] = useState("");
+  const [otroBanco, setOtroBanco] = useState("");
+  const [modalBancoVisible, setModalBancoVisible] = useState(false);
 
   // Nuevos campos
   const [numeroDocumentoCI, setNumeroDocumentoCI] = useState("");
@@ -144,7 +147,7 @@ export default function CaptacionCreateWizard({ navigation }) {
         emailCliente: emailCliente.trim() || null,
         telefonoCliente1: telefonoCliente1.trim() || null,
         telefonoCliente2: telefonoCliente2.trim() || null,
-        banco: banco.trim() || null,
+        banco: banco === "Otro" ? (otroBanco.trim() || "Otro") : (banco.trim() || null),
         esCasoAsesur: esCasoAsesur,
         numeroDocumentoCI: numeroDocumentoCI.trim() || null,
         antiguedadEdificio: antiguedadEdificio ? parseInt(antiguedadEdificio, 10) : null,
@@ -416,7 +419,24 @@ export default function CaptacionCreateWizard({ navigation }) {
                 </View>
                 <View className="space-y-1.5">
                   <Text className="text-sm font-semibold text-slate-700 ml-1">Banco del Cliente</Text>
-                  <TextInput className="w-full h-14 px-4 rounded-xl border border-slate-200 bg-white text-slate-900" placeholder="Ej: Banco Estado, Santander..." value={banco} onChangeText={setBanco} placeholderTextColor="#94a3b8" />
+                  <TouchableOpacity
+                    className="h-14 px-4 rounded-xl border border-slate-200 bg-white flex-row items-center justify-between"
+                    onPress={() => setModalBancoVisible(true)}
+                  >
+                    <Text className={banco ? "text-slate-900 font-medium" : "text-slate-400"} numberOfLines={1}>
+                      {banco === "Otro" && otroBanco.trim() ? `Otro: ${otroBanco}` : (banco || "Seleccionar Banco")}
+                    </Text>
+                    <MaterialIcons name="expand-more" size={20} color="#94a3b8" />
+                  </TouchableOpacity>
+                  {banco === "Otro" && (
+                    <TextInput
+                      className="w-full h-14 px-4 rounded-xl border border-slate-200 bg-white text-slate-900 mt-2"
+                      placeholder="Escribe el nombre del banco o institución..."
+                      value={otroBanco}
+                      onChangeText={setOtroBanco}
+                      placeholderTextColor="#94a3b8"
+                    />
+                  )}
                 </View>
               </View>
             )}
@@ -534,21 +554,66 @@ export default function CaptacionCreateWizard({ navigation }) {
         onClose={() => setModalRegionVisible(false)} 
       />
       <SelectorModal visible={modalComunaVisible} title="Comuna" data={regiones.find(r => r.name === region)?.communes.map(c => c.name) || []} value={comuna} onSelect={setComuna} onClose={() => setModalComunaVisible(false)} />
+      <SelectorModal 
+        visible={modalBancoVisible} 
+        title="Banco del Cliente" 
+        data={bancosData} 
+        value={banco} 
+        onSelect={(val) => { 
+          setBanco(val); 
+          if (val !== "Otro") setOtroBanco(""); 
+        }} 
+        onClose={() => setModalBancoVisible(false)} 
+        searchable 
+      />
     </SafeAreaView>
   );
 }
 
-function SelectorModal({ visible, title, data, value, onSelect, onClose, isMonth }) {
+function SelectorModal({ visible, title, data, value, onSelect, onClose, isMonth, searchable }) {
+  const [search, setSearch] = useState("");
+
+  const filteredData = useMemo(() => {
+    if (!searchable || !search.trim()) return data;
+    const q = search.toLowerCase();
+    return data.filter(it => {
+      const label = it.id && isMonth ? it.id : (it.name || it);
+      return String(label).toLowerCase().includes(q);
+    });
+  }, [data, search, searchable, isMonth]);
+
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <View className="flex-1 justify-end bg-black/40">
-        <View className="bg-white rounded-t-3xl h-[60%] pb-8">
+        <View className="bg-white rounded-t-3xl h-[65%] pb-8">
           <View className="flex-row justify-between items-center px-6 py-4 border-b border-slate-100">
             <Text className="text-lg font-bold text-slate-800">{title}</Text>
             <TouchableOpacity onPress={onClose} className="p-2"><MaterialIcons name="close" size={20} color="#64748b" /></TouchableOpacity>
           </View>
+
+          {searchable && (
+            <View className="px-6 py-3 border-b border-slate-100">
+              <View className="flex-row items-center bg-slate-100 rounded-xl px-3 py-2">
+                <MaterialIcons name="search" size={20} color="#94a3b8" />
+                <TextInput
+                  className="flex-1 ml-2 text-sm text-slate-800 p-0"
+                  placeholder="Buscar banco..."
+                  value={search}
+                  onChangeText={setSearch}
+                  placeholderTextColor="#94a3b8"
+                  autoCapitalize="none"
+                />
+                {!!search && (
+                  <TouchableOpacity onPress={() => setSearch("")}>
+                    <MaterialIcons name="cancel" size={16} color="#94a3b8" />
+                  </TouchableOpacity>
+                )}
+              </View>
+            </View>
+          )}
+
           <FlatList
-            data={data}
+            data={filteredData}
             keyExtractor={(it) => it.id || it}
             renderItem={({ item }) => {
               const itemValue = item.id && isMonth ? item.id : (item.name || item);
@@ -557,7 +622,7 @@ function SelectorModal({ visible, title, data, value, onSelect, onClose, isMonth
               return (
                 <TouchableOpacity 
                   className={`py-4 px-6 border-b border-slate-50 flex-row justify-between ${isSelected ? 'bg-blue-50' : ''}`} 
-                  onPress={() => { onSelect(itemValue); onClose(); }}
+                  onPress={() => { onSelect(itemValue); onClose(); setSearch(""); }}
                 >
                   <Text className={`text-base ${isSelected ? 'font-bold text-[#1152d4]' : 'text-slate-700'}`}>{itemLabel}</Text>
                   {isSelected && <MaterialIcons name="check" size={20} color="#1152d4" />}
