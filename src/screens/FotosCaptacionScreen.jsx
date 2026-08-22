@@ -56,7 +56,7 @@ export default function FotosCaptacionScreen({ route, navigation }) {
   const { casoId } = route.params;
 
   const { me } = useAuth();
-  const [autoPre, setAutoPre] = useState(true);
+  const [autoPre, setAutoPre] = useState(false);
 
   const [busy, setBusy] = useState(true);
   const [error, setError] = useState("");
@@ -510,7 +510,7 @@ export default function FotosCaptacionScreen({ route, navigation }) {
                     await api.patch(`/casos/${casoId}`, { estado: "PENDIENTE_AUTORIZACION" });
 
                     if (me?.rol === "ASESOR" && autoPre) {
-                      await api.post(`/pre-siniestro/${casoId}/vb-desde-captacion`);
+                      await api.post(`/captaciones/${casoId}/vb-pre`);
                     }
                     navigation.replace("CasoDetalle", { id: casoId });
                   } catch (e) {
