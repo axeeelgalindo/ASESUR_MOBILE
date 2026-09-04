@@ -31,53 +31,105 @@ export default function RootNavigator() {
 
   if (!token) {
     return (
-      <Stack.Navigator>
+      <Stack.Navigator
+        screenOptions={{
+          headerShown: false,
+          statusBarStyle: "dark",
+          statusBarColor: "transparent",
+          statusBarTranslucent: true,
+        }}
+      >
         <Stack.Screen
           name="Login"
           component={LoginScreen}
-          options={{ headerShown: false }}
+          options={{
+            headerShown: false,
+            statusBarStyle: "dark",
+            statusBarColor: "transparent",
+            statusBarTranslucent: true,
+          }}
         />
       </Stack.Navigator>
     );
   }
 
   return (
-    <Stack.Navigator>
+    <Stack.Navigator
+      screenOptions={{
+        headerShown: false,
+        statusBarStyle: "dark",
+        statusBarColor: "transparent",
+        statusBarTranslucent: true,
+      }}
+    >
       <Stack.Screen
         name="Captaciones"
         component={CaptacionesListScreen}
-        options={{ headerShown: false }}
+        options={{
+          headerShown: false,
+          statusBarStyle: "dark",
+          statusBarColor: "transparent",
+          statusBarTranslucent: true,
+        }}
       />
 
       <Stack.Screen
         name="NuevaCaptacion"
         component={CaptacionCreateWizard}
-        options={{ title: "Nueva Captación" }}
+        options={{
+          title: "Nueva Captación",
+          headerShown: false,
+          gestureEnabled: false,
+          statusBarStyle: "dark",
+          statusBarColor: "transparent",
+          statusBarTranslucent: true,
+        }}
       />
 
       <Stack.Screen
         name="CasoDetalle"
         component={CasoDetalleScreen}
-        options={{ title: "Detalle Caso" }}
+        options={{
+          headerShown: false,
+          statusBarStyle: "dark",
+          statusBarColor: "transparent",
+          statusBarTranslucent: true,
+        }}
       />
 
       <Stack.Screen
         name="FotosCaptacion"
         component={FotosCaptacionScreen}
-        options={{ title: "Fotos Captación" }}
+        options={{
+          headerShown: false,
+          statusBarStyle: "dark",
+          statusBarColor: "transparent",
+          statusBarTranslucent: true,
+        }}
       />
 
       <Stack.Screen
         name="TomarFoto"
         component={TomarFotoScreen}
-        options={{ title: "Tomar Foto" }}
+        options={{
+          headerShown: false,
+          statusBarStyle: "light",
+          statusBarColor: "transparent",
+          statusBarTranslucent: true,
+        }}
       />
 
       {/* ✅ ESTA ES LA QUE TE FALTABA */}
       <Stack.Screen
         name="PDFCasoScreen"
         component={PDFCasoScreen}
-        options={{ title: "PDF (con fotos)" }}
+        options={{
+          title: "PDF (con fotos)",
+          headerShown: true,
+          statusBarStyle: "dark",
+          statusBarColor: "transparent",
+          statusBarTranslucent: true,
+        }}
       />
     </Stack.Navigator>
   );

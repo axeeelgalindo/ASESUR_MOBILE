@@ -1,11 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, TouchableOpacity, Keyboard, Platform, StyleSheet, LayoutAnimation, UIManager } from 'react-native';
+import { View, Text, TouchableOpacity, Keyboard, Platform, StyleSheet, LayoutAnimation } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
-
-// Enable LayoutAnimation for Android if needed (though we'll only animate iOS directly as native Android handles its own layout resizing)
-if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
-    UIManager.setLayoutAnimationEnabledExperimental(true);
-}
 
 export default function GlobalKeyboardToolbar() {
     const [keyboardHeight, setKeyboardHeight] = useState(0);

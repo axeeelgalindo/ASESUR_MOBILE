@@ -1,9 +1,10 @@
 // src/screens/CasoDetalleScreen.js
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { Image, ScrollView, View, Pressable, Alert, TouchableOpacity, ActivityIndicator, SafeAreaView, Dimensions, Text } from "react-native";
+import { Image, ScrollView, View, Pressable, Alert, TouchableOpacity, ActivityIndicator, Dimensions, Text } from "react-native";
 import { MaterialIcons } from '@expo/vector-icons';
 import ImageViewing from "react-native-image-viewing";
 import * as DocumentPicker from "expo-document-picker";
+import { useSafeScreenInsets } from "../utils/safeArea";
 
 import { api, PUBLIC_URL } from "../../api/client";
 import { useAuth } from "../auth/AuthContext";
@@ -69,6 +70,7 @@ export default function CasoDetalleScreen({ route, navigation }) {
   const casoId = route?.params?.id || route?.params?.casoId;
 
   const { me } = useAuth();
+  const { top: topPadding, bottom: bottomPadding } = useSafeScreenInsets();
 
   const [busy, setBusy] = useState(true);
   const [error, setError] = useState("");
@@ -300,7 +302,7 @@ export default function CasoDetalleScreen({ route, navigation }) {
 
   if (!caso) {
     return (
-      <SafeAreaView className="flex-1 bg-[#f6f6f8] p-4">
+      <View className="flex-1 bg-[#f6f6f8] p-4" style={{ paddingTop: topPadding + 16 }}>
         <View className="bg-white rounded-xl p-4 shadow-sm">
           <Text className="text-red-500 font-bold mb-4">
             {error || "Caso no encontrado"}
@@ -318,7 +320,7 @@ export default function CasoDetalleScreen({ route, navigation }) {
             <Text className="text-[#1152d4] font-semibold">Volver</Text>
           </TouchableOpacity>
         </View>
-      </SafeAreaView>
+      </View>
     );
   }
 
@@ -335,11 +337,23 @@ export default function CasoDetalleScreen({ route, navigation }) {
         doubleTapToZoomEnabled
       />
 
-      <SafeAreaView className="flex-1 bg-[#f0f2f5]">
-        <View className="flex-1 bg-[#f0f2f5]">
-
-          {/* Top App Bar Premium */}
-          <View className="flex-row items-center px-4 py-4 bg-white border-b border-slate-200 z-10" style={{ shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 3, elevation: 3 }}>
+      <View className="flex-1 bg-[#f0f2f5]">
+        {/* Top App Bar Premium con Safe Area integrada para evitar colisiones con barra de estado y notch */}
+        <View
+          style={{
+            paddingTop: topPadding,
+            backgroundColor: "#ffffff",
+            borderBottomWidth: 1,
+            borderBottomColor: "#e2e8f0",
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 2 },
+            shadowOpacity: 0.05,
+            shadowRadius: 3,
+            elevation: 3,
+            zIndex: 10,
+          }}
+        >
+          <View className="flex-row items-center px-4 py-3">
             <TouchableOpacity
               className="w-10 h-10 items-center justify-center rounded-full bg-slate-50 active:bg-slate-100"
               onPress={() => navigation.goBack()}
@@ -359,8 +373,9 @@ export default function CasoDetalleScreen({ route, navigation }) {
               <MaterialIcons name="info-outline" size={20} color="#1152d4" />
             </View>
           </View>
+        </View>
 
-          <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 48, paddingTop: 20 }} showsVerticalScrollIndicator={false}>
+        <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: bottomPadding + 32, paddingTop: 16 }} showsVerticalScrollIndicator={false}>
             {!!error && (
               <View className="bg-red-50 p-4 rounded-xl border border-red-200 mb-6 flex-row items-center">
                 <MaterialIcons name="error-outline" size={24} color="#dc2626" />
@@ -642,8 +657,7 @@ export default function CasoDetalleScreen({ route, navigation }) {
 
 
           </ScrollView>
-        </View>
-      </SafeAreaView>
+      </View>
     </>
   );
 }

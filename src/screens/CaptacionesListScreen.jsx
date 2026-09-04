@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState, useMemo } from "react";
 import { FlatList, RefreshControl, View, Text, TouchableOpacity, ImageBackground, ActivityIndicator, Modal, TextInput } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { useSafeScreenInsets } from "../utils/safeArea";
 import { useAuth } from "../auth/AuthContext";
 import { api, PUBLIC_URL } from "../../api/client";
 import { MaterialIcons } from '@expo/vector-icons';
@@ -46,6 +46,7 @@ const getEstadoStyle = (estado) => {
 
 export default function CaptacionesListScreen({ navigation }) {
   const { me, signOut } = useAuth();
+  const { top: topPadding, bottom: bottomPadding } = useSafeScreenInsets();
   const [refreshing, setRefreshing] = useState(false);
   const [items, setItems] = useState([]);
   const [error, setError] = useState("");
@@ -221,29 +222,39 @@ export default function CaptacionesListScreen({ navigation }) {
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-[#f6f6f8]">
-      {/* Header Fijo Original */}
-      <View className="bg-white border-b border-slate-200 px-4 py-3 flex-row items-center justify-between z-10">
-        <View className="flex-row items-center gap-3">
-          <TouchableOpacity
-            className="p-1.5 rounded-full flex items-center justify-center"
-            onPress={onRefresh}
-            activeOpacity={0.7}
-          >
-            <MaterialIcons name="sync" size={22} color="#64748b" />
-          </TouchableOpacity>
-          <Text className="text-lg font-bold tracking-tight text-slate-900">
-            {activeTab === "CAPTACIONES" ? "Captaciones" : "Inspecciones"}
-          </Text>
-        </View>
-        <View className="flex-row items-center gap-2">
-          <TouchableOpacity
-            className="p-1.5 rounded-full flex items-center justify-center"
-            onPress={signOut}
-            activeOpacity={0.7}
-          >
-            <MaterialIcons name="logout" size={22} color="#64748b" />
-          </TouchableOpacity>
+    <View className="flex-1 bg-[#f6f6f8]">
+      {/* Header Fijo con Safe Area integrada */}
+      <View
+        style={{
+          paddingTop: topPadding,
+          backgroundColor: "#ffffff",
+          borderBottomWidth: 1,
+          borderBottomColor: "#e2e8f0",
+          zIndex: 10,
+        }}
+      >
+        <View className="bg-white px-4 py-3 flex-row items-center justify-between">
+          <View className="flex-row items-center gap-3">
+            <TouchableOpacity
+              className="p-1.5 rounded-full flex items-center justify-center"
+              onPress={onRefresh}
+              activeOpacity={0.7}
+            >
+              <MaterialIcons name="sync" size={22} color="#64748b" />
+            </TouchableOpacity>
+            <Text className="text-lg font-bold tracking-tight text-slate-900">
+              {activeTab === "CAPTACIONES" ? "Captaciones" : "Inspecciones"}
+            </Text>
+          </View>
+          <View className="flex-row items-center gap-2">
+            <TouchableOpacity
+              className="p-1.5 rounded-full flex items-center justify-center"
+              onPress={signOut}
+              activeOpacity={0.7}
+            >
+              <MaterialIcons name="logout" size={22} color="#64748b" />
+            </TouchableOpacity>
+          </View>
         </View>
       </View>
 
@@ -352,19 +363,27 @@ export default function CaptacionesListScreen({ navigation }) {
         data={filteredItems}
         keyExtractor={(item) => String(item.id)}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-        contentContainerStyle={{ padding: 16, paddingTop: 8, paddingBottom: 80, flexGrow: 1 }}
+        contentContainerStyle={{ padding: 16, paddingTop: 8, paddingBottom: Math.max(110, bottomPadding + 95), flexGrow: 1 }}
         ListEmptyComponent={<EmptyListState refreshing={refreshing} error={error} activeTab={activeTab} />}
         renderItem={renderItem}
       />
 
-      {/* Floating Action Button (FAB) para Nueva Captación */}
+      {/* Floating Action Button (FAB) para Nueva Captación elevado sobre barra de navegación */}
       <TouchableOpacity
-        className="absolute bottom-6 right-6 w-[60px] h-[60px] bg-[#1152d4] rounded-full items-center justify-center shadow-lg"
-        style={{ elevation: 5, shadowColor: '#1152d4', shadowOpacity: 0.45, shadowRadius: 10, shadowOffset: { width: 0, height: 6 } }}
-        activeOpacity={0.8}
+        className="absolute w-[62px] h-[62px] bg-[#1152d4] rounded-full items-center justify-center shadow-xl"
+        style={{
+          bottom: Math.max(28, bottomPadding + 20),
+          right: 24,
+          elevation: 8,
+          shadowColor: '#1152d4',
+          shadowOpacity: 0.5,
+          shadowRadius: 10,
+          shadowOffset: { width: 0, height: 5 }
+        }}
+        activeOpacity={0.85}
         onPress={() => navigation.navigate("NuevaCaptacion")}
       >
-        <MaterialIcons name="add" size={28} color="white" />
+        <MaterialIcons name="add" size={32} color="white" />
       </TouchableOpacity>
 
       {/* MODAL REGIÓN (FILTRO) */}
@@ -447,6 +466,6 @@ export default function CaptacionesListScreen({ navigation }) {
         </View>
       </Modal>
 
-    </SafeAreaView>
+    </View>
   );
 }

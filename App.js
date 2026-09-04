@@ -1,13 +1,24 @@
 /// <reference types="nativewind/types" />
 import "./global.css";
 import React, { useEffect } from "react";
-import { AppState, View } from "react-native";
+import { AppState, View, StatusBar as RNStatusBar, Platform, LogBox } from "react-native";
+
+// Ocultar barra/toast flotante de warnings (LogBox) en pantalla del dispositivo
+LogBox.ignoreAllLogs(true);
+LogBox.ignoreLogs([
+  "Require cycle:",
+  "setLayoutAnimationEnabledExperimental",
+  "SafeAreaView has been deprecated",
+  "expo-background-fetch",
+]);
 import { PaperProvider } from "react-native-paper";
 import { NavigationContainer } from "@react-navigation/native";
 
 import { AuthProvider } from "./src/auth/AuthContext";
 import RootNavigator from "./src/navigation/RootNavigator";
 import GlobalKeyboardToolbar from "./src/components/GlobalKeyboardToolbar";
+import { SafeAreaProvider } from "react-native-safe-area-context";
+import { StatusBar } from "expo-status-bar";
 
 // ✅ cola offline
 import { processQueue } from "./src/mobile/uploads/uploadQueue";
@@ -54,6 +65,12 @@ async function registerUploadTask() {
 
 export default function App() {
   useEffect(() => {
+    if (Platform.OS === "android") {
+      RNStatusBar.setTranslucent(true);
+      RNStatusBar.setBackgroundColor("transparent");
+      RNStatusBar.setBarStyle("dark-content");
+    }
+
     // ✅ 1) registra background upload
     registerUploadTask();
 
@@ -71,15 +88,18 @@ export default function App() {
   }, []);
 
   return (
-    <PaperProvider>
-      <AuthProvider>
-        <View style={{ flex: 1 }}>
-          <NavigationContainer>
-            <RootNavigator />
-          </NavigationContainer>
-          <GlobalKeyboardToolbar />
-        </View>
-      </AuthProvider>
-    </PaperProvider>
+    <SafeAreaProvider>
+      <PaperProvider>
+        <AuthProvider>
+          <View style={{ flex: 1 }}>
+            <StatusBar style="dark" backgroundColor="transparent" translucent={true} />
+            <NavigationContainer>
+              <RootNavigator />
+            </NavigationContainer>
+            <GlobalKeyboardToolbar />
+          </View>
+        </AuthProvider>
+      </PaperProvider>
+    </SafeAreaProvider>
   );
 }

@@ -2,9 +2,11 @@ import React, { useState } from "react";
 import { KeyboardAvoidingView, Platform, View, Text, TextInput, TouchableOpacity, Image, ScrollView, ActivityIndicator, Alert, useColorScheme } from "react-native";
 import { useAuth } from "../auth/AuthContext";
 import { MaterialIcons } from '@expo/vector-icons';
+import { useSafeScreenInsets } from "../utils/safeArea";
 
 export default function LoginScreen() {
   const { signIn } = useAuth();
+  const { top: topPadding, bottom: bottomPadding } = useSafeScreenInsets();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
@@ -45,7 +47,7 @@ export default function LoginScreen() {
         style={{ flex: 1 }}
         behavior={Platform.OS === "ios" ? "padding" : "height"}
       >
-        <ScrollView contentContainerStyle={{ flexGrow: 1, justifyContent: "center", alignItems: "center", padding: 16 }}>
+        <ScrollView contentContainerStyle={{ flexGrow: 1, justifyContent: "center", alignItems: "center", padding: 16, paddingTop: Math.max(topPadding, 24), paddingBottom: Math.max(bottomPadding, 24) }}>
           {/* Decorative backgrounds */}
           <View className="absolute -top-24 -left-24 w-96 h-96 bg-[#1152d4]/5 rounded-full" />
           <View className="absolute -bottom-24 -right-24 w-96 h-96 bg-[#1152d4]/5 rounded-full" />

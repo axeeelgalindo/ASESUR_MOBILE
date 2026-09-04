@@ -1,14 +1,13 @@
-// src/screens/TomarFotoScreen.js
 import React, { useEffect, useMemo, useState } from "react";
-import { View } from "react-native";
-import { Button, Card, Menu, Text, TextInput } from "react-native-paper";
+import { View, Text, TouchableOpacity, ActivityIndicator } from "react-native";
+import { Menu } from "react-native-paper";
 import { CameraView, useCameraPermissions } from "expo-camera";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as ImagePicker from "expo-image-picker";
-import * as ImageManipulator from "expo-image-manipulator";
+import { MaterialIcons } from '@expo/vector-icons';
+import { StatusBar } from "expo-status-bar";
+import { useSafeScreenInsets } from "../utils/safeArea";
 
-import { BASE_URL } from "../../api/client";
-import { enqueueUpload, processQueue } from "../mobile/uploads/uploadQueue";
+import { enqueueUpload, processQueue, uploadPhotoBase64, compressToBase64 } from "../mobile/uploads/uploadQueue";
 
 const PARTES = [
   "FACHADA",
@@ -31,68 +30,28 @@ function prettyParte(p) {
   return String(p || "OTRO").replaceAll("_", " ");
 }
 
-// ✅ comprime + devuelve base64 para evitar 413
-async function compressToBase64(photoUri) {
-  const manipulated = await ImageManipulator.manipulateAsync(
-    photoUri,
-    [{ resize: { width: 1600 } }],
-    {
-      compress: 0.7,
-      format: ImageManipulator.SaveFormat.JPEG,
-      base64: true,
-    }
-  );
-
-  if (!manipulated?.base64) throw new Error("No se pudo generar base64");
-  return manipulated.base64;
-}
-
-// ✅ función de subida usada por cola también
-export async function uploadPhotoBase64({ casoId, parteCasa, photoUri, titulo }) {
-  const token = await AsyncStorage.getItem("token");
-  if (!token) throw new Error("No hay token");
-
-  const base64 = await compressToBase64(photoUri);
-
-  const res = await fetch(`${BASE_URL}/casos/${casoId}/fotos-base64`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      parteCasa,
-      filename: `foto_${Date.now()}.jpg`,
-      mimeType: "image/jpeg",
-      base64,
-      titulo: titulo ? String(titulo).trim() : null,
-    }),
-  });
-
-  const json = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(json?.message || `Error subiendo foto (${res.status})`);
-  return json;
-}
-
 export default function TomarFotoScreen({ route, navigation }) {
-  const { casoId, parteCasa: parteCasaParam, titulo: tituloParam } = route.params;
+  const { casoId, parteCasa: parteCasaParam } = route.params;
+  const { top: topPadding, bottom: bottomPadding } = useSafeScreenInsets();
 
   const [permission, requestPermission] = useCameraPermissions();
   const [menuVisible, setMenuVisible] = useState(false);
   const [parteCasa, setParteCasa] = useState(parteCasaParam || "FACHADA");
   const [cameraRef, setCameraRef] = useState(null);
 
-  const [comentario, setComentario] = useState(tituloParam || "");
+  const [fotosTomadas, setFotosTomadas] = useState(0);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
   useEffect(() => {
-    navigation.setOptions({ title: `Fotos (${prettyParte(parteCasa)})` });
-  }, [navigation, parteCasa]);
+    navigation.setOptions({ headerShown: false });
+  }, [navigation]);
 
   const hasPermission = useMemo(() => permission?.granted === true, [permission]);
 
+  // ✅ Toma continua: toma la foto, la procesa/sube, incrementa contador y se mantiene en la cámara
   const takePhoto = async () => {
+    if (busy) return;
     setError("");
     setBusy(true);
     try {
@@ -105,27 +64,28 @@ export default function TomarFotoScreen({ route, navigation }) {
 
       if (!photo?.uri) throw new Error("No se obtuvo uri de foto");
 
+      // Subir o encolar sin cerrar la cámara
       try {
         await uploadPhotoBase64({
           casoId,
           parteCasa,
           photoUri: photo.uri,
-          titulo: comentario,
+          titulo: null, // Los comentarios se manejan exclusivamente afuera
         });
-        await processQueue();
-        navigation.goBack();
+        processQueue().catch(() => {});
       } catch (e) {
         await enqueueUpload({
           casoId,
           parteCasa,
           photoUri: photo.uri,
           createdAt: Date.now(),
-          titulo: comentario,
+          titulo: null,
         });
-        setError("Falló subida. Quedó en cola y se subirá automáticamente.");
       }
+
+      setFotosTomadas((prev) => prev + 1);
     } catch (e) {
-      setError(e?.message || "No se pudo tomar/subir la foto");
+      setError(e?.message || "No se pudo tomar la foto");
     } finally {
       setBusy(false);
     }
@@ -141,7 +101,7 @@ export default function TomarFotoScreen({ route, navigation }) {
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsMultipleSelection: true,
-        quality: 1, // da igual, igual comprimimos
+        quality: 1,
       });
 
       if (result.canceled) return;
@@ -149,6 +109,7 @@ export default function TomarFotoScreen({ route, navigation }) {
       const assets = result.assets || [];
       if (!assets.length) throw new Error("No se seleccionaron fotos");
 
+      let count = 0;
       for (const a of assets) {
         if (!a?.uri) continue;
 
@@ -157,7 +118,7 @@ export default function TomarFotoScreen({ route, navigation }) {
             casoId,
             parteCasa,
             photoUri: a.uri,
-            titulo: comentario,
+            titulo: null,
           });
         } catch (e) {
           await enqueueUpload({
@@ -165,16 +126,16 @@ export default function TomarFotoScreen({ route, navigation }) {
             parteCasa,
             photoUri: a.uri,
             createdAt: Date.now(),
-            titulo: comentario,
+            titulo: null,
           });
-          setError("Falló una subida. Quedó en cola y se subirá automáticamente.");
         }
+        count++;
       }
 
-      await processQueue();
-      navigation.goBack();
+      setFotosTomadas((prev) => prev + count);
+      processQueue().catch(() => {});
     } catch (e) {
-      setError(e?.message || "No se pudo seleccionar/subir desde galería");
+      setError(e?.message || "No se pudo seleccionar desde galería");
     } finally {
       setBusy(false);
     }
@@ -182,98 +143,153 @@ export default function TomarFotoScreen({ route, navigation }) {
 
   if (!permission) {
     return (
-      <View style={{ flex: 1, padding: 12, justifyContent: "center" }}>
-        <Text>Cargando permisos...</Text>
+      <View className="flex-1 items-center justify-center bg-slate-900 px-6">
+        <ActivityIndicator size="large" color="#ffffff" />
+        <Text className="text-white font-medium mt-4">Cargando permisos de cámara...</Text>
       </View>
     );
   }
 
-  if (!hasPermission) {
+  if (!permission.granted) {
     return (
-      <View style={{ flex: 1, padding: 12, justifyContent: "center" }}>
-        <Card style={{ padding: 12 }}>
-          <Text variant="titleMedium" style={{ marginBottom: 10 }}>
-            Permiso de cámara
+      <View className="flex-1 items-center justify-center bg-slate-900 px-6" style={{ paddingTop: topPadding, paddingBottom: bottomPadding }}>
+        <View className="bg-white rounded-3xl p-6 w-full items-center shadow-lg">
+          <MaterialIcons name="camera-alt" size={48} color="#1152d4" />
+          <Text className="text-lg font-bold text-slate-900 mt-3 text-center">Permiso de Cámara Requerido</Text>
+          <Text className="text-sm text-slate-500 text-center mt-2 mb-6">
+            Necesitamos acceso a la cámara para capturar la evidencia del caso en terreno.
           </Text>
-          <Text style={{ opacity: 0.8, marginBottom: 12 }}>
-            Necesitamos permiso para tomar fotos.
-          </Text>
-          <Button mode="contained" onPress={requestPermission}>
-            Dar permiso
-          </Button>
-        </Card>
+          <TouchableOpacity
+            className="w-full bg-[#1152d4] h-12 rounded-xl items-center justify-center"
+            onPress={requestPermission}
+          >
+            <Text className="text-white font-bold text-base">Permitir Cámara</Text>
+          </TouchableOpacity>
+        </View>
       </View>
     );
   }
 
   return (
-    <View style={{ flex: 1 }}>
-      <CameraView style={{ flex: 1 }} facing="back" ref={(r) => setCameraRef(r)} />
+    <View className="flex-1 bg-black">
+      <StatusBar style="light" backgroundColor="transparent" translucent={true} />
+      <CameraView style={{ flex: 1 }} facing="back" ref={(r) => setCameraRef(r)}>
+        <View className="flex-1 justify-between p-4" style={{ paddingTop: topPadding + 8, paddingBottom: Math.max(bottomPadding, 16) }}>
+          
+          {/* Header Superior sobre la Cámara */}
+          <View className="flex-row items-center justify-between">
+            <TouchableOpacity
+              onPress={() => navigation.goBack()}
+              className="w-11 h-11 rounded-full bg-black/50 items-center justify-center border border-white/20"
+              activeOpacity={0.7}
+            >
+              <MaterialIcons name="close" size={24} color="#ffffff" />
+            </TouchableOpacity>
 
-      <View style={{ padding: 12 }}>
-        <Card style={{ padding: 12 }}>
-          <Text style={{ marginBottom: 8, opacity: 0.8 }}>Caso: {casoId}</Text>
+            {/* Selector de Parte de Casa */}
+            <Menu
+              visible={menuVisible}
+              onDismiss={() => setMenuVisible(false)}
+              anchor={
+                <TouchableOpacity
+                  onPress={() => setMenuVisible(true)}
+                  className="flex-row items-center gap-1.5 bg-black/60 px-4 py-2 rounded-full border border-white/30"
+                  activeOpacity={0.8}
+                >
+                  <MaterialIcons name="home-work" size={16} color="#ffffff" />
+                  <Text className="text-white font-bold text-xs uppercase tracking-wider">
+                    {prettyParte(parteCasa)}
+                  </Text>
+                  <MaterialIcons name="arrow-drop-down" size={20} color="#ffffff" />
+                </TouchableOpacity>
+              }
+            >
+              {PARTES.map((p) => (
+                <Menu.Item
+                  key={p}
+                  title={prettyParte(p)}
+                  onPress={() => {
+                    setParteCasa(p);
+                    setMenuVisible(false);
+                  }}
+                />
+              ))}
+            </Menu>
 
-          <Menu
-            visible={menuVisible}
-            onDismiss={() => setMenuVisible(false)}
-            anchor={
-              <Button mode="outlined" onPress={() => setMenuVisible(true)}>
-                Parte: {prettyParte(parteCasa)}
-              </Button>
-            }
-          >
-            {PARTES.map((p) => (
-              <Menu.Item
-                key={p}
-                title={prettyParte(p)}
-                onPress={() => {
-                  setParteCasa(p);
-                  setMenuVisible(false);
-                }}
-              />
-            ))}
-          </Menu>
+            {/* Contador en vivo */}
+            <View className="bg-emerald-500/90 px-3 py-1.5 rounded-full flex-row items-center gap-1">
+              <MaterialIcons name="check-circle" size={16} color="#ffffff" />
+              <Text className="text-white font-bold text-xs">
+                {fotosTomadas} {fotosTomadas === 1 ? "foto" : "fotos"}
+              </Text>
+            </View>
+          </View>
 
-          <TextInput
-            mode="outlined"
-            label="Comentario (opcional)"
-            value={comentario}
-            onChangeText={setComentario}
-            style={{ marginTop: 12 }}
-            placeholder='Ej: "Daño en escalera, escalón 5 y 6"'
-            multiline
-          />
+          {/* Mensaje de error si ocurre */}
+          {!!error && (
+            <View className="bg-red-600/90 p-3 rounded-xl mx-2 flex-row items-center gap-2">
+              <MaterialIcons name="error-outline" size={20} color="#ffffff" />
+              <Text className="text-white text-xs font-semibold flex-1">{error}</Text>
+            </View>
+          )}
 
-          {!!error && <Text style={{ marginTop: 10, color: "#B00020" }}>{error}</Text>}
+          {/* Barra de Controles Inferior */}
+          <View className="bg-black/60 rounded-3xl p-4 border border-white/10 mb-2">
+            
+            {/* Botón "Cerrar / Listo" si ya tomó fotos */}
+            {fotosTomadas > 0 && (
+              <TouchableOpacity
+                onPress={() => navigation.goBack()}
+                className="w-full bg-emerald-600 h-11 rounded-xl items-center justify-center flex-row gap-2 mb-4 shadow-sm"
+                activeOpacity={0.8}
+              >
+                <MaterialIcons name="done-all" size={20} color="#ffffff" />
+                <Text className="text-white font-bold text-sm uppercase tracking-wider">
+                  Listo • Cerrar Cámara ({fotosTomadas})
+                </Text>
+              </TouchableOpacity>
+            )}
 
-          <Button
-            mode="contained"
-            icon="camera"
-            style={{ marginTop: 12 }}
-            loading={busy}
-            disabled={busy}
-            onPress={takePhoto}
-          >
-            Tomar y subir foto
-          </Button>
+            <View className="flex-row items-center justify-around">
+              {/* Botón Galería */}
+              <TouchableOpacity
+                onPress={pickFromGallery}
+                disabled={busy}
+                className="items-center justify-center w-14 h-14 rounded-full bg-white/10 border border-white/20"
+                activeOpacity={0.7}
+              >
+                <MaterialIcons name="photo-library" size={24} color="#ffffff" />
+              </TouchableOpacity>
 
-          <Button
-            mode="outlined"
-            icon="image"
-            style={{ marginTop: 10 }}
-            loading={busy}
-            disabled={busy}
-            onPress={pickFromGallery}
-          >
-            Elegir desde galería
-          </Button>
+              {/* Botón Disparador Principal (Toma continua) */}
+              <TouchableOpacity
+                onPress={takePhoto}
+                disabled={busy}
+                className="w-20 h-20 rounded-full border-4 border-white items-center justify-center bg-white/20"
+                activeOpacity={0.7}
+              >
+                {busy ? (
+                  <ActivityIndicator size="small" color="#ffffff" />
+                ) : (
+                  <View className="w-16 h-16 rounded-full bg-white items-center justify-center shadow-md">
+                    <MaterialIcons name="camera-alt" size={30} color="#1152d4" />
+                  </View>
+                )}
+              </TouchableOpacity>
 
-          <Button mode="text" style={{ marginTop: 6 }} onPress={() => navigation.goBack()}>
-            Volver
-          </Button>
-        </Card>
-      </View>
+              {/* Botón Volver */}
+              <TouchableOpacity
+                onPress={() => navigation.goBack()}
+                className="items-center justify-center w-14 h-14 rounded-full bg-white/10 border border-white/20"
+                activeOpacity={0.7}
+              >
+                <MaterialIcons name="arrow-back" size={24} color="#ffffff" />
+              </TouchableOpacity>
+            </View>
+          </View>
+
+        </View>
+      </CameraView>
     </View>
   );
 }

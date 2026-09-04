@@ -6,12 +6,6 @@
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
-    "newArchEnabled": true,
-    "splash": {
-      "image": "./assets/splash-icon.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
-    },
     "ios": {
       "supportsTablet": true
     },
@@ -20,8 +14,12 @@
         "foregroundImage": "./assets/icon.png",
         "backgroundColor": "#ffffff"
       },
-      "edgeToEdgeEnabled": true,
       "package": "com.axelgalindo.mobile"
+    },
+    "androidStatusBar": {
+      "barStyle": "dark-content",
+      "backgroundColor": "#00000000",
+      "translucent": true
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -31,6 +29,19 @@
         "projectId": "6e380712-c75e-472f-9197-33c1f97c8601"
       }
     },
-    "owner": "axelgalindo"
+    "owner": "axelgalindo",
+    "plugins": [
+      "expo-secure-store",
+      "expo-status-bar",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash-icon.png",
+          "resizeMode": "contain",
+          "backgroundColor": "#ffffff"
+        }
+      ],
+      "expo-font"
+    ]
   }
 }

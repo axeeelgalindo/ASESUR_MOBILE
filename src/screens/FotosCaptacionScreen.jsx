@@ -1,8 +1,9 @@
 // src/screens/FotosCaptacionScreen.js
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { Image, ScrollView, View, Pressable, Alert, AppState, SafeAreaView, TouchableOpacity, TextInput, ActivityIndicator, KeyboardAvoidingView, Platform, Text } from "react-native";
+import { Image, ScrollView, View, Pressable, Alert, AppState, TouchableOpacity, TextInput, ActivityIndicator, KeyboardAvoidingView, Platform, Text } from "react-native";
 import { MaterialIcons } from '@expo/vector-icons';
 import ImageViewing from "react-native-image-viewing";
+import { useSafeScreenInsets } from "../utils/safeArea";
 import { api, PUBLIC_URL } from "../../api/client";
 import { useAuth } from "../auth/AuthContext";
 import { processQueue } from "../mobile/uploads/uploadQueue";
@@ -56,6 +57,7 @@ export default function FotosCaptacionScreen({ route, navigation }) {
   const { casoId } = route.params;
 
   const { me } = useAuth();
+  const { top: topPadding, bottom: bottomPadding } = useSafeScreenInsets();
   const [autoPre, setAutoPre] = useState(false);
 
   const [busy, setBusy] = useState(true);
@@ -147,10 +149,12 @@ export default function FotosCaptacionScreen({ route, navigation }) {
     return !!pendingInspectionGestion || caso?.estado === "INSPECCION";
   }, [pendingInspectionGestion, caso]);
 
+  const canAutoPre = useMemo(() => {
+    return me?.rol === "ASESOR" || me?.rol === "GERENTE" || me?.rol === "SUPERADMIN" || me?.rol === "MASTER";
+  }, [me]);
+
   const openCamera = (parteCasa) => {
-    // mandamos el comentario draft como titulo (se guarda al subir foto)
-    const titulo = comentarioPorParte[parteCasa] || "";
-    navigation.navigate("TomarFoto", { casoId, parteCasa, titulo });
+    navigation.navigate("TomarFoto", { casoId, parteCasa });
   };
 
   const openViewer = (parteCasa, startIdx) => {
@@ -166,7 +170,7 @@ export default function FotosCaptacionScreen({ route, navigation }) {
     const rol = me?.rol;
     const myId = me?.id || me?.sub || me?.userId;
 
-    if (rol === "SUPERADMIN" || rol === "OPERACIONES") return true;
+    if (rol === "SUPERADMIN" || rol === "OPERACIONES" || rol === "GERENTE" || rol === "MASTER") return true;
 
     if ((rol === "CAPTADOR" || rol === "INSPECTOR" || rol === "ASESOR") && f?.subidoPorId && myId) {
       return f.subidoPorId === myId;
@@ -236,31 +240,45 @@ export default function FotosCaptacionScreen({ route, navigation }) {
         doubleTapToZoomEnabled
       />
 
-      <SafeAreaView className="flex-1 bg-[#f0f2f5]">
-
-        {/* Top Navigation Bar Premium */}
-        <View className="flex-row items-center px-4 py-4 bg-white border-b border-slate-200 z-50 justify-between" style={{ shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 3, elevation: 3 }}>
-          <View className="flex-row items-center gap-4">
-            <TouchableOpacity
-              className="w-10 h-10 flex items-center justify-center rounded-full bg-slate-50 active:bg-slate-100"
-              onPress={() => navigation.goBack()}
-              activeOpacity={0.7}
-            >
-              <MaterialIcons name="arrow-back" size={20} color="#334155" />
-            </TouchableOpacity>
-            <View>
-              <Text className="text-lg font-extrabold tracking-tight text-slate-900">
-                {esInspeccion ? "Fotos Inspección" : "Fotos Captación"}
-              </Text>
-              <Text className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Gestor de Evidencia</Text>
+      <View className="flex-1 bg-[#f0f2f5]">
+        {/* Top Navigation Bar Premium con Safe Area integrada */}
+        <View
+          style={{
+            paddingTop: topPadding,
+            backgroundColor: "#ffffff",
+            borderBottomWidth: 1,
+            borderBottomColor: "#e2e8f0",
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 2 },
+            shadowOpacity: 0.05,
+            shadowRadius: 3,
+            elevation: 3,
+            zIndex: 50,
+          }}
+        >
+          <View className="flex-row items-center px-4 py-3 justify-between">
+            <View className="flex-row items-center gap-3">
+              <TouchableOpacity
+                className="w-10 h-10 flex items-center justify-center rounded-full bg-slate-50 active:bg-slate-100"
+                onPress={() => navigation.goBack()}
+                activeOpacity={0.7}
+              >
+                <MaterialIcons name="arrow-back" size={20} color="#334155" />
+              </TouchableOpacity>
+              <View>
+                <Text className="text-lg font-extrabold tracking-tight text-slate-900">
+                  {esInspeccion ? "Fotos Inspección" : "Fotos Captación"}
+                </Text>
+                <Text className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Gestor de Evidencia</Text>
+              </View>
             </View>
-          </View>
-          <View className="w-10 h-10 items-center justify-center rounded-full bg-blue-50">
-            <MaterialIcons name="collections" size={20} color="#1152d4" />
+            <View className="w-10 h-10 items-center justify-center rounded-full bg-blue-50">
+              <MaterialIcons name="collections" size={20} color="#1152d4" />
+            </View>
           </View>
         </View>
 
-        <ScrollView contentContainerStyle={{ paddingBottom: 130 }} showsVerticalScrollIndicator={false}>
+        <ScrollView contentContainerStyle={{ paddingBottom: bottomPadding + 110 }} showsVerticalScrollIndicator={false}>
           {!!error && (
             <View className="m-4 bg-red-50 p-4 rounded-xl border border-red-200 flex-row items-center">
               <MaterialIcons name="error-outline" size={24} color="#dc2626" />
@@ -300,7 +318,7 @@ export default function FotosCaptacionScreen({ route, navigation }) {
                 </View>
               )}
 
-              {me?.rol === "ASESOR" && (
+              {canAutoPre && (
                 <TouchableOpacity
                   className="mt-4 flex-row items-center gap-3 bg-white p-4 rounded-2xl border border-slate-200 shadow-sm"
                   style={{ elevation: 1 }}
@@ -463,8 +481,11 @@ export default function FotosCaptacionScreen({ route, navigation }) {
 
         </ScrollView>
 
-        {/* Bottom Action Bar */}
-        <View className="absolute bottom-0 left-0 right-0 bg-white border-t border-slate-200 px-4 pt-3 pb-6 z-50 shadow-[0_-8px_10px_-4px_rgb(0,0,0,0.05)]">
+        {/* Bottom Action Bar con safe padding */}
+        <View
+          className="absolute bottom-0 left-0 right-0 bg-white border-t border-slate-200 px-4 pt-3 z-50 shadow-[0_-8px_10px_-4px_rgb(0,0,0,0.05)]"
+          style={{ paddingBottom: Math.max(bottomPadding, 16) }}
+        >
           <View className="w-full">
             <TouchableOpacity
               className={`w-full h-[54px] rounded-2xl flex-row items-center justify-center gap-3 shadow-sm ${(allOk || esInspeccion) ? (esInspeccion ? 'bg-emerald-600' : 'bg-[#1152d4]') : 'bg-slate-200'}`}
@@ -509,7 +530,7 @@ export default function FotosCaptacionScreen({ route, navigation }) {
                   try {
                     await api.patch(`/casos/${casoId}`, { estado: "PENDIENTE_AUTORIZACION" });
 
-                    if (me?.rol === "ASESOR" && autoPre) {
+                    if (canAutoPre && autoPre) {
                       await api.post(`/captaciones/${casoId}/vb-pre`);
                     }
                     navigation.replace("CasoDetalle", { id: casoId });
@@ -535,7 +556,7 @@ export default function FotosCaptacionScreen({ route, navigation }) {
           </View>
         </View>
 
-      </SafeAreaView>
+      </View>
     </KeyboardAvoidingView>
   );
 }
