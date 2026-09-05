@@ -1,12 +1,24 @@
-// src/screens/FotosCaptacionScreen.js
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { Image, ScrollView, View, Pressable, Alert, AppState, TouchableOpacity, TextInput, ActivityIndicator, KeyboardAvoidingView, Platform, Text } from "react-native";
-import { MaterialIcons } from '@expo/vector-icons';
+import {
+  Image,
+  ScrollView,
+  View,
+  Alert,
+  AppState,
+  TouchableOpacity,
+  TextInput,
+  ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
+  Text,
+} from "react-native";
+import { MaterialIcons } from "@expo/vector-icons";
 import ImageViewing from "react-native-image-viewing";
 import { useSafeScreenInsets } from "../utils/safeArea";
 import { api, PUBLIC_URL } from "../../api/client";
 import { useAuth } from "../auth/AuthContext";
-import { processQueue } from "../mobile/uploads/uploadQueue";
+import ModernHeader from "../components/ui/ModernHeader";
+import ModernCard from "../components/ui/ModernCard";
 
 export const PARTES = [
   "FACHADA",
@@ -57,7 +69,7 @@ export default function FotosCaptacionScreen({ route, navigation }) {
   const { casoId } = route.params;
 
   const { me } = useAuth();
-  const { top: topPadding, bottom: bottomPadding } = useSafeScreenInsets();
+  const { bottom: bottomPadding } = useSafeScreenInsets();
   const [autoPre, setAutoPre] = useState(false);
 
   const [busy, setBusy] = useState(true);
@@ -65,11 +77,9 @@ export default function FotosCaptacionScreen({ route, navigation }) {
   const [fotos, setFotos] = useState([]);
   const [caso, setCaso] = useState(null);
 
-  // comentario (draft) por parte + guardando estado por parte
   const [comentarioPorParte, setComentarioPorParte] = useState({});
-  const [savingParte, setSavingParte] = useState({}); // { FACHADA: true }
+  const [savingParte, setSavingParte] = useState({});
 
-  // visor
   const [viewerOpen, setViewerOpen] = useState(false);
   const [viewerIndex, setViewerIndex] = useState(0);
   const [viewerImages, setViewerImages] = useState([]);
@@ -86,7 +96,6 @@ export default function FotosCaptacionScreen({ route, navigation }) {
       setFotos(list);
       setCaso(resCaso?.data?.caso || resCaso?.data || null);
 
-      // inicializa draft con último comentario guardado por parte (solo si no existe)
       const groupedTmp = groupByParte(list);
       const lastComments = getLastCommentByParte(groupedTmp);
       setComentarioPorParte((prev) => {
@@ -97,7 +106,11 @@ export default function FotosCaptacionScreen({ route, navigation }) {
         return next;
       });
     } catch (e) {
-      setError(e?.response?.data?.message || e?.response?.data?.error || "No se pudieron cargar las fotos");
+      setError(
+        e?.response?.data?.message ||
+        e?.response?.data?.error ||
+        "No se pudieron cargar las fotos"
+      );
     } finally {
       setBusy(false);
     }
@@ -108,7 +121,7 @@ export default function FotosCaptacionScreen({ route, navigation }) {
 
     const unsub = navigation.addListener("focus", async () => {
       try {
-        await processQueue(); // Expo Go friendly
+        await processQueue();
       } catch { }
       await load();
     });
@@ -135,7 +148,6 @@ export default function FotosCaptacionScreen({ route, navigation }) {
     return c;
   }, [grouped]);
 
-  const faltantes = useMemo(() => PARTES.filter((p) => (counts[p] || 0) < 1), [counts]);
   const allOk = fotos.length >= 1;
 
   const pendingInspectionGestion = useMemo(() => {
@@ -150,7 +162,12 @@ export default function FotosCaptacionScreen({ route, navigation }) {
   }, [pendingInspectionGestion, caso]);
 
   const canAutoPre = useMemo(() => {
-    return me?.rol === "ASESOR" || me?.rol === "GERENTE" || me?.rol === "SUPERADMIN" || me?.rol === "MASTER";
+    return (
+      me?.rol === "ASESOR" ||
+      me?.rol === "GERENTE" ||
+      me?.rol === "SUPERADMIN" ||
+      me?.rol === "MASTER"
+    );
   }, [me]);
 
   const openCamera = (parteCasa) => {
@@ -170,9 +187,19 @@ export default function FotosCaptacionScreen({ route, navigation }) {
     const rol = me?.rol;
     const myId = me?.id || me?.sub || me?.userId;
 
-    if (rol === "SUPERADMIN" || rol === "OPERACIONES" || rol === "GERENTE" || rol === "MASTER") return true;
+    if (
+      rol === "SUPERADMIN" ||
+      rol === "OPERACIONES" ||
+      rol === "GERENTE" ||
+      rol === "MASTER"
+    )
+      return true;
 
-    if ((rol === "CAPTADOR" || rol === "INSPECTOR" || rol === "ASESOR") && f?.subidoPorId && myId) {
+    if (
+      (rol === "CAPTADOR" || rol === "INSPECTOR" || rol === "ASESOR") &&
+      f?.subidoPorId &&
+      myId
+    ) {
       return f.subidoPorId === myId;
     }
     return false;
@@ -186,36 +213,50 @@ export default function FotosCaptacionScreen({ route, navigation }) {
       return;
     }
 
-    Alert.alert("Eliminar foto", "¿Seguro que deseas eliminar esta foto? Esta acción no se puede deshacer.", [
-      { text: "Cancelar", style: "cancel" },
-      {
-        text: "Eliminar",
-        style: "destructive",
-        onPress: async () => {
-          try {
-            await api.delete(`/casos/${casoId}/fotos/${foto.id}`);
-            await load();
-          } catch (e) {
-            Alert.alert("Error", e?.response?.data?.message || "No se pudo eliminar la foto");
-          }
+    Alert.alert(
+      "Eliminar foto",
+      "¿Seguro que deseas eliminar esta foto? Esta acción no se puede deshacer.",
+      [
+        { text: "Cancelar", style: "cancel" },
+        {
+          text: "Eliminar",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              await api.delete(`/casos/${casoId}/fotos/${foto.id}`);
+              await load();
+            } catch (e) {
+              Alert.alert(
+                "Error",
+                e?.response?.data?.message || "No se pudo eliminar la foto"
+              );
+            }
+          },
         },
-      },
-    ]);
+      ]
+    );
   };
 
   const saveCommentForParte = async (parteCasa) => {
     const list = grouped[parteCasa] || [];
-    const latest = list?.[0]; // más reciente
+    const latest = list?.[0];
     if (!latest?.id) return;
 
     const draft = String(comentarioPorParte[parteCasa] || "").trim();
     setSavingParte((prev) => ({ ...prev, [parteCasa]: true }));
     try {
-      await api.patch(`/casos/${casoId}/fotos/${latest.id}`, { titulo: draft || null });
+      await api.patch(`/casos/${casoId}/fotos/${latest.id}`, {
+        titulo: draft || null,
+      });
       await load();
       Alert.alert("Éxito", "Comentario guardado exitosamente");
     } catch (e) {
-      Alert.alert("Error", e?.response?.data?.message || e?.response?.data?.error || "No se pudo guardar el comentario");
+      Alert.alert(
+        "Error",
+        e?.response?.data?.message ||
+        e?.response?.data?.error ||
+        "No se pudo guardar el comentario"
+      );
     } finally {
       setSavingParte((prev) => ({ ...prev, [parteCasa]: false }));
     }
@@ -223,14 +264,20 @@ export default function FotosCaptacionScreen({ route, navigation }) {
 
   if (busy) {
     return (
-      <View className="flex-1 items-center justify-center bg-[#f6f6f8]">
-        <ActivityIndicator size="large" color="#1152d4" />
+      <View className="flex-1 items-center justify-center bg-[#f8fafc]">
+        <ActivityIndicator size="large" color="#2563eb" />
+        <Text className="text-slate-400 font-bold text-xs mt-3">
+          Cargando evidencia fotográfica...
+        </Text>
       </View>
     );
   }
 
   return (
-    <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} className="flex-1">
+    <KeyboardAvoidingView
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+      className="flex-1"
+    >
       <ImageViewing
         images={viewerImages}
         imageIndex={viewerIndex}
@@ -240,79 +287,71 @@ export default function FotosCaptacionScreen({ route, navigation }) {
         doubleTapToZoomEnabled
       />
 
-      <View className="flex-1 bg-[#f0f2f5]">
-        {/* Top Navigation Bar Premium con Safe Area integrada */}
-        <View
-          style={{
-            paddingTop: topPadding,
-            backgroundColor: "#ffffff",
-            borderBottomWidth: 1,
-            borderBottomColor: "#e2e8f0",
-            shadowColor: '#000',
-            shadowOffset: { width: 0, height: 2 },
-            shadowOpacity: 0.05,
-            shadowRadius: 3,
-            elevation: 3,
-            zIndex: 50,
-          }}
-        >
-          <View className="flex-row items-center px-4 py-3 justify-between">
-            <View className="flex-row items-center gap-3">
-              <TouchableOpacity
-                className="w-10 h-10 flex items-center justify-center rounded-full bg-slate-50 active:bg-slate-100"
-                onPress={() => navigation.goBack()}
-                activeOpacity={0.7}
-              >
-                <MaterialIcons name="arrow-back" size={20} color="#334155" />
-              </TouchableOpacity>
-              <View>
-                <Text className="text-lg font-extrabold tracking-tight text-slate-900">
-                  {esInspeccion ? "Fotos Inspección" : "Fotos Captación"}
-                </Text>
-                <Text className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Gestor de Evidencia</Text>
-              </View>
+      <View className="flex-1 bg-[#f8fafc]">
+        {/* Modern Header */}
+        <ModernHeader
+          title={esInspeccion ? "Fotos de Inspección" : "Fotos de Captación"}
+          subtitle={`Folio ${caso?.folio || "-"}`}
+          onBack={() => navigation.goBack()}
+          rightElement={
+            <View className="bg-blue-50 px-3 py-1 rounded-full border border-blue-100">
+              <Text className="text-blue-700 text-xs font-black">
+                {fotos.length} fotos
+              </Text>
             </View>
-            <View className="w-10 h-10 items-center justify-center rounded-full bg-blue-50">
-              <MaterialIcons name="collections" size={20} color="#1152d4" />
-            </View>
-          </View>
-        </View>
+          }
+        />
 
-        <ScrollView contentContainerStyle={{ paddingBottom: bottomPadding + 110 }} showsVerticalScrollIndicator={false}>
+        <ScrollView
+          contentContainerStyle={{ paddingBottom: bottomPadding + 110 }}
+          showsVerticalScrollIndicator={false}
+        >
           {!!error && (
-            <View className="m-4 bg-red-50 p-4 rounded-xl border border-red-200 flex-row items-center">
-              <MaterialIcons name="error-outline" size={24} color="#dc2626" />
-              <View className="flex-1 ml-3">
-                <Text className="text-red-700 font-bold mb-1">{error}</Text>
+            <View className="m-4 bg-rose-50 p-4 rounded-2xl border border-rose-200 flex-row items-center">
+              <MaterialIcons name="error-outline" size={20} color="#dc2626" />
+              <View className="flex-1 ml-2.5">
+                <Text className="text-rose-700 font-bold text-xs">{error}</Text>
               </View>
-              <TouchableOpacity className="bg-red-100 px-3 py-1.5 rounded-lg border border-red-200" onPress={load}>
-                <Text className="text-red-700 font-bold text-[12px]">Reintentar</Text>
+              <TouchableOpacity
+                className="bg-rose-100 px-3 py-1.5 rounded-xl border border-rose-200"
+                activeOpacity={0.7}
+                onPress={load}
+              >
+                <Text className="text-rose-700 font-bold text-[11px]">
+                  Reintentar
+                </Text>
               </TouchableOpacity>
             </View>
           )}
 
-          {/* Warning/Status Box */}
+          {/* Warning / Ready Banner */}
           {!esInspeccion && (
-            <View className="px-4 pt-5 pb-2">
+            <View className="px-4 pt-4 pb-1">
               {!allOk ? (
-                <View className="flex-row items-start gap-4 rounded-2xl border border-red-200 bg-red-50 p-4 shadow-sm" style={{ elevation: 1 }}>
-                  <View className="mt-0.5">
-                    <MaterialIcons name="error" size={26} color="#dc2626" />
-                  </View>
+                <View className="flex-row items-center gap-3 rounded-2xl border border-amber-200 bg-amber-50/80 p-3.5 shadow-sm">
+                  <MaterialIcons name="info-outline" size={24} color="#d97706" />
                   <View className="flex-1">
-                    <Text className="text-[14px] font-extrabold uppercase tracking-wide text-red-700 mb-1">Evidencia Incompleta</Text>
-                    <Text className="text-red-600 text-[13px] font-medium leading-tight">
-                      Debes capturar al menos <Text className="font-bold">1 foto</Text> para poder finalizar la captación y enviarla a Visto Bueno.
+                    <Text className="text-xs font-extrabold uppercase tracking-wide text-amber-900">
+                      Evidencia en progreso
+                    </Text>
+                    <Text className="text-amber-700 text-xs font-medium mt-0.5">
+                      Captura al menos 1 foto para poder finalizar la captación.
                     </Text>
                   </View>
                 </View>
               ) : (
-                <View className="flex-row items-center gap-4 rounded-2xl border border-green-200 bg-green-50 p-4 shadow-sm" style={{ elevation: 1 }}>
-                  <MaterialIcons name="check-circle" size={28} color="#15803d" />
+                <View className="flex-row items-center gap-3 rounded-2xl border border-emerald-200 bg-emerald-50/80 p-3.5 shadow-sm">
+                  <MaterialIcons
+                    name="check-circle"
+                    size={24}
+                    color="#059669"
+                  />
                   <View className="flex-1">
-                    <Text className="text-[14px] font-extrabold uppercase tracking-wide text-green-800 mb-0.5">Captación Lista</Text>
-                    <Text className="text-green-700 font-medium text-[13px] leading-tight">
-                      Ya puedes finalizar la captación. ({fotos.length} foto/s capturadas)
+                    <Text className="text-xs font-extrabold uppercase tracking-wide text-emerald-900">
+                      Evidencia lista
+                    </Text>
+                    <Text className="text-emerald-700 text-xs font-medium mt-0.5">
+                      {fotos.length} fotos tomadas. Ya puedes finalizar.
                     </Text>
                   </View>
                 </View>
@@ -320,110 +359,171 @@ export default function FotosCaptacionScreen({ route, navigation }) {
 
               {canAutoPre && (
                 <TouchableOpacity
-                  className="mt-4 flex-row items-center gap-3 bg-white p-4 rounded-2xl border border-slate-200 shadow-sm"
-                  style={{ elevation: 1 }}
+                  className="mt-3 flex-row items-center gap-3 bg-white p-3.5 rounded-2xl border border-slate-200/80 shadow-sm"
+                  activeOpacity={0.7}
                   onPress={() => setAutoPre(!autoPre)}
-                  activeOpacity={0.8}
                 >
-                  <MaterialIcons name={autoPre ? "check-box" : "check-box-outline-blank"} size={26} color={autoPre ? "#1152d4" : "#94a3b8"} />
+                  <MaterialIcons
+                    name={autoPre ? "check-box" : "check-box-outline-blank"}
+                    size={22}
+                    color={autoPre ? "#2563eb" : "#94a3b8"}
+                  />
                   <View className="flex-1">
-                    <Text className="text-slate-700 text-[14px] font-semibold">Autorizar paso automático</Text>
-                    <Text className="text-slate-400 text-[11px] font-bold uppercase tracking-wider mt-0.5">Cambiar a Pre-Siniestro al finalizar</Text>
+                    <Text className="text-slate-800 text-xs font-bold">
+                      Autorizar paso automático
+                    </Text>
+                    <Text className="text-slate-400 text-[10px] font-medium">
+                      Cambiar a Pre-Siniestro inmediatamente
+                    </Text>
                   </View>
                 </TouchableOpacity>
               )}
             </View>
           )}
 
+          {/* Partes List */}
           {PARTES.map((p) => {
             const list = grouped[p] || [];
             const count = list.length;
-            const ultimoComentario = list?.[0]?.titulo ? String(list[0].titulo) : "";
+            const ultimoComentario = list?.[0]?.titulo
+              ? String(list[0].titulo)
+              : "";
             const draft = comentarioPorParte[p] ?? "";
 
-            const canSave = count > 0 && String(draft || "").trim() !== String(ultimoComentario || "").trim() && !savingParte[p];
+            const canSave =
+              count > 0 &&
+              String(draft || "").trim() !== String(ultimoComentario || "").trim() &&
+              !savingParte[p];
             const hasPhoto = count > 0;
-            const mainPhotoUri = hasPhoto ? `${PUBLIC_URL}${encodeURI(list[0].urlArchivo)}` : null;
+            const mainPhotoUri = hasPhoto
+              ? `${PUBLIC_URL}${encodeURI(list[0].urlArchivo)}`
+              : null;
 
             return (
-              <View key={p} className="mt-4 px-4">
-                <View className="flex-row items-center gap-2 mb-2 px-1">
-                  <MaterialIcons name="home-work" size={16} color="#94a3b8" />
-                  <Text className="text-[13px] font-bold text-slate-500 uppercase tracking-widest ml-0.5">{prettyParte(p)}</Text>
-                </View>
-
-                <View className="bg-white rounded-2xl overflow-hidden border border-slate-200 shadow-sm" style={{ shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 2 }}>
-
-                  {/* Image Display */}
+              <View key={p} className="mt-3.5 px-4">
+                <ModernCard className="overflow-hidden p-0">
+                  {/* Photo Main Area */}
                   {hasPhoto ? (
                     <TouchableOpacity
                       activeOpacity={0.9}
                       onPress={() => openViewer(p, 0)}
-                      className="relative w-full h-48 bg-slate-100 flex items-center justify-center overflow-hidden"
+                      className="relative w-full h-44 bg-slate-100 flex items-center justify-center overflow-hidden"
                     >
-                      <Image source={{ uri: mainPhotoUri }} className="w-full h-full" resizeMode="cover" />
+                      <Image
+                        source={{ uri: mainPhotoUri }}
+                        className="w-full h-full"
+                        resizeMode="cover"
+                      />
                       <View className="absolute inset-0 bg-black/10" />
 
-                      <View className="absolute top-3 right-3 bg-white/95 px-3 py-1.5 rounded-full shadow-sm flex-row items-center border border-slate-100">
-                        <MaterialIcons name="verified" size={16} color="#10b981" />
-                        <Text className="text-emerald-700 font-extrabold ml-1.5 text-[11px] uppercase">{count} archivo(s)</Text>
+                      <View className="absolute top-3 right-3 bg-white/95 px-2.5 py-1 rounded-full shadow-sm flex-row items-center border border-slate-100">
+                        <MaterialIcons
+                          name="check-circle"
+                          size={14}
+                          color="#059669"
+                        />
+                        <Text className="text-emerald-800 font-extrabold ml-1 text-[11px]">
+                          {count} {count === 1 ? "foto" : "fotos"}
+                        </Text>
                       </View>
                     </TouchableOpacity>
                   ) : (
-                    <View className="w-full h-32 bg-slate-50 flex flex-col items-center justify-center border-b border-slate-100">
-                      <MaterialIcons name="add-a-photo" size={32} color="#cbd5e1" style={{ marginBottom: 8 }} />
-                      <Text className="text-[12px] font-bold text-slate-400">Ninguna fotografía capturada</Text>
+                    <View className="w-full h-24 bg-slate-50 flex flex-col items-center justify-center border-b border-slate-100">
+                      <MaterialIcons
+                        name="add-a-photo"
+                        size={26}
+                        color="#cbd5e1"
+                      />
+                      <Text className="text-[11px] font-bold text-slate-400 mt-1">
+                        Sin fotografías registradas
+                      </Text>
                     </View>
                   )}
 
-                  <View className="p-4">
-                    <View className="flex-row justify-between items-center bg-slate-50 rounded-xl p-3 mb-4">
+                  <View className="p-3.5">
+                    {/* Header of the Part */}
+                    <View className="flex-row justify-between items-center bg-slate-50/80 rounded-xl p-3 mb-3 border border-slate-100">
                       <View className="flex-1 pr-2">
-                        <Text className="text-[14px] font-bold text-slate-900 border-l-2 border-[#1152d4] pl-2 mb-0.5">Capturar {prettyParte(p)}</Text>
-                        <Text className="text-slate-500 text-[11px] font-medium leading-tight pl-2" numberOfLines={2}>Toma vistas claras del área requerida.</Text>
+                        <Text className="text-xs font-black text-slate-800 uppercase tracking-wide">
+                          {prettyParte(p)}
+                        </Text>
+                        <Text
+                          className="text-slate-400 text-[10px] font-medium"
+                          numberOfLines={1}
+                        >
+                          {hasPhoto
+                            ? "Área registrada"
+                            : "Captura vistas del área"}
+                        </Text>
                       </View>
 
                       <View className="flex-row gap-2">
                         {hasPhoto && (
                           <TouchableOpacity
-                            className="w-11 h-11 items-center justify-center rounded-xl bg-red-50 border border-red-100"
-                            onPress={() => confirmDelete(list[0])}
+                            className="w-9 h-9 items-center justify-center rounded-xl bg-rose-50 border border-rose-100"
                             activeOpacity={0.7}
+                            onPress={() => confirmDelete(list[0])}
                           >
-                            <MaterialIcons name="delete-outline" size={22} color="#dc2626" />
+                            <MaterialIcons
+                              name="delete-outline"
+                              size={18}
+                              color="#e11d48"
+                            />
                           </TouchableOpacity>
                         )}
                         <TouchableOpacity
-                          className="flex-row items-center justify-center gap-1.5 rounded-xl h-11 px-4 bg-[#1152d4]"
-                          style={{ elevation: 3, shadowColor: '#1152d4', shadowOpacity: 0.25, shadowRadius: 5, shadowOffset: { width: 0, height: 3 } }}
-                          activeOpacity={0.85}
+                          className="flex-row items-center justify-center gap-1 rounded-xl h-9 px-3 bg-blue-600 shadow-sm"
+                          activeOpacity={0.7}
                           onPress={() => openCamera(p)}
                         >
-                          <MaterialIcons name="camera-alt" size={18} color="white" />
-                          <Text className="text-white text-[13px] font-bold">{hasPhoto ? "Añadir +" : "Capturar"}</Text>
+                          <MaterialIcons
+                            name="camera-alt"
+                            size={16}
+                            color="white"
+                          />
+                          <Text className="text-white text-xs font-bold">
+                            {hasPhoto ? "Añadir +" : "Capturar"}
+                          </Text>
                         </TouchableOpacity>
                       </View>
                     </View>
 
-                    {/* Thumbnail gallery if multiple photos */}
+                    {/* Additional photo thumbnails */}
                     {hasPhoto && count > 1 && (
-                      <View className="mt-2 mb-4">
-                        <Text className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Fotos Adicionales ({count - 1})</Text>
-                        <ScrollView horizontal showsHorizontalScrollIndicator={false} className="flex-row">
+                      <View className="mb-3">
+                        <Text className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">
+                          Fotos Adicionales ({count - 1})
+                        </Text>
+                        <ScrollView
+                          horizontal
+                          showsHorizontalScrollIndicator={false}
+                          className="flex-row"
+                        >
                           {list.slice(1).map((f, idx) => (
-                            <View key={f.id} className="relative w-16 h-16 mr-3">
+                            <View key={f.id} className="relative w-14 h-14 mr-2">
                               <TouchableOpacity
                                 onPress={() => openViewer(p, idx + 1)}
                                 className="w-full h-full rounded-xl border border-slate-200 overflow-hidden bg-slate-50"
                               >
-                                <Image source={{ uri: `${PUBLIC_URL}${encodeURI(f.urlArchivo)}` }} className="w-full h-full opacity-80" resizeMode="cover" />
+                                <Image
+                                  source={{
+                                    uri: `${PUBLIC_URL}${encodeURI(
+                                      f.urlArchivo
+                                    )}`,
+                                  }}
+                                  className="w-full h-full"
+                                  resizeMode="cover"
+                                />
                               </TouchableOpacity>
                               <TouchableOpacity
-                                className="absolute -top-1.5 -right-1.5 bg-red-500 rounded-full w-5 h-5 items-center justify-center border-2 border-white shadow-sm"
+                                className="absolute -top-1 -right-1 bg-rose-500 rounded-full w-5 h-5 items-center justify-center border border-white shadow-sm"
                                 onPress={() => confirmDelete(f)}
-                                style={{ elevation: 2 }}
                               >
-                                <MaterialIcons name="close" size={10} color="white" />
+                                <MaterialIcons
+                                  name="close"
+                                  size={11}
+                                  color="white"
+                                />
                               </TouchableOpacity>
                             </View>
                           ))}
@@ -431,131 +531,151 @@ export default function FotosCaptacionScreen({ route, navigation }) {
                       </View>
                     )}
 
-                    <View className="mt-1">
-                      <View className="flex-row items-center mb-2">
-                        <MaterialIcons name="notes" size={16} color="#64748b" />
-                        <Text className="ml-1 text-[12px] font-bold text-slate-600 uppercase tracking-wider">Comentarios de Inspección</Text>
+                    {/* Observations Input */}
+                    <View>
+                      <View className="flex-row items-center mb-1.5">
+                        <MaterialIcons name="edit-note" size={16} color="#64748b" />
+                        <Text className="ml-1 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                          Observaciones
+                        </Text>
                       </View>
                       <View className="relative">
                         <TextInput
-                          className="w-full rounded-xl border border-slate-200 bg-[#f8fafc] p-4 text-[13px] text-slate-800 pt-4 min-h-[90px]"
-                          placeholder={hasPhoto ? "Escribe observaciones detalladas..." : "Sube al menos 1 foto para comentar..."}
+                          className="w-full rounded-xl border border-slate-200 bg-slate-50/60 p-3 text-xs text-slate-800 min-h-[75px]"
+                          placeholder={
+                            hasPhoto
+                              ? "Escribe observaciones del área..."
+                              : "Toma una foto para agregar comentarios..."
+                          }
                           placeholderTextColor="#94a3b8"
                           multiline
                           textAlignVertical="top"
                           editable={hasPhoto}
                           value={draft}
-                          onChangeText={(txt) => setComentarioPorParte((prev) => ({ ...prev, [p]: txt }))}
+                          onChangeText={(txt) =>
+                            setComentarioPorParte((prev) => ({
+                              ...prev,
+                              [p]: txt,
+                            }))
+                          }
                         />
                         {canSave && (
                           <TouchableOpacity
-                            className="absolute bottom-3 right-3 bg-emerald-100/80 px-4 py-2 rounded-lg flex-row items-center border border-emerald-200 shadow-sm"
-                            onPress={() => saveCommentForParte(p)}
+                            className="absolute bottom-2.5 right-2.5 bg-emerald-600 px-3 py-1.5 rounded-lg flex-row items-center shadow-sm"
                             activeOpacity={0.7}
-                            style={{ elevation: 1 }}
+                            onPress={() => saveCommentForParte(p)}
                           >
-                            {savingParte[p] ? <ActivityIndicator size="small" color="#059669" /> : <MaterialIcons name="save" size={16} color="#059669" />}
-                            <Text className="text-emerald-800 font-extrabold text-[12px] ml-1.5">Guardar</Text>
+                            {savingParte[p] ? (
+                              <ActivityIndicator size="small" color="#ffffff" />
+                            ) : (
+                              <MaterialIcons
+                                name="check"
+                                size={14}
+                                color="#ffffff"
+                              />
+                            )}
+                            <Text className="text-white font-bold text-xs ml-1">
+                              Guardar
+                            </Text>
                           </TouchableOpacity>
                         )}
                       </View>
                     </View>
-
                   </View>
-                </View>
+                </ModernCard>
               </View>
             );
           })}
-
-          <View className="mt-8 px-4 mb-8">
-            <TouchableOpacity
-              className="w-full flex-row items-center justify-center gap-3 rounded-2xl h-14 bg-white border border-slate-200 shadow-sm"
-              activeOpacity={0.7}
-              onPress={() => navigation.navigate("PDFCasoScreen", { casoId })}
-              style={{ elevation: 1 }}
-            >
-              <MaterialIcons name="picture-as-pdf" size={22} color="#475569" />
-              <Text className="text-slate-700 font-extrabold text-[14px]">Previsualizar PDF del Caso</Text>
-            </TouchableOpacity>
-          </View>
-
         </ScrollView>
 
-        {/* Bottom Action Bar con safe padding */}
+        {/* Bottom Floating Bar */}
         <View
-          className="absolute bottom-0 left-0 right-0 bg-white border-t border-slate-200 px-4 pt-3 z-50 shadow-[0_-8px_10px_-4px_rgb(0,0,0,0.05)]"
+          className="absolute bottom-0 left-0 right-0 bg-white border-t border-slate-200/80 px-4 pt-3 z-50 shadow-xl"
           style={{ paddingBottom: Math.max(bottomPadding, 16) }}
         >
-          <View className="w-full">
-            <TouchableOpacity
-              className={`w-full h-[54px] rounded-2xl flex-row items-center justify-center gap-3 shadow-sm ${(allOk || esInspeccion) ? (esInspeccion ? 'bg-emerald-600' : 'bg-[#1152d4]') : 'bg-slate-200'}`}
-              disabled={!allOk && !esInspeccion}
-              activeOpacity={0.8}
-              style={(allOk || esInspeccion) ? { elevation: 4, shadowColor: esInspeccion ? '#059669' : '#1152d4', shadowOpacity: 0.3, shadowRadius: 8, shadowOffset: { width: 0, height: 4 } } : {}}
-              onPress={async () => {
-                setError("");
-                if (esInspeccion) {
-                  if (!pendingInspectionGestion) {
-                    Alert.alert("Error", "No se encontró una gestión de inspección pendiente para este caso.");
-                    return;
-                  }
-                  Alert.alert(
-                    "Terminar Inspección",
-                    "¿Estás seguro de que deseas finalizar la inspección de este caso? Se generará la Ficha de Inspección Word automáticamente con toda la información y fotos registradas.",
-                    [
-                      { text: "Cancelar", style: "cancel" },
-                      {
-                        text: "Finalizar",
-                        style: "default",
-                        onPress: async () => {
-                          try {
-                            await api.post(`/siniestros/${casoId}/gestiones/${pendingInspectionGestion.id}/completar`, {
-                              observaciones: "Inspección completada desde aplicación móvil",
-                            });
-                            Alert.alert("Éxito", "La inspección ha sido finalizada y la Ficha de Inspección se ha guardado correctamente.");
-                            navigation.replace("CasoDetalle", { id: casoId });
-                          } catch (e) {
-                            Alert.alert(
-                              "Error",
-                              e?.response?.data?.error ||
-                              e?.response?.data?.message ||
-                              "No se pudo completar la inspección."
+          <TouchableOpacity
+            className={`w-full h-12 rounded-2xl flex-row items-center justify-center gap-2 shadow-md ${
+              allOk || esInspeccion ? "bg-blue-600" : "bg-slate-200"
+            }`}
+            activeOpacity={0.7}
+            disabled={!allOk && !esInspeccion}
+            onPress={async () => {
+              setError("");
+              if (esInspeccion) {
+                Alert.alert(
+                  "Terminar Inspección",
+                  "¿Estás seguro de que deseas finalizar la inspección de este caso? Se registrarán las fotos y el estado de la inspección.",
+                  [
+                    { text: "Cancelar", style: "cancel" },
+                    {
+                      text: "Finalizar",
+                      style: "default",
+                      onPress: async () => {
+                        try {
+                          if (pendingInspectionGestion) {
+                            await api.post(
+                              `/siniestros/${casoId}/gestiones/${pendingInspectionGestion.id}/completar`,
+                              {
+                                observaciones:
+                                  "Inspección completada desde aplicación móvil",
+                              }
                             );
+                          } else {
+                            await api.patch(`/casos/${casoId}`, {
+                              estado: "INSPECCION",
+                            });
                           }
+                          Alert.alert(
+                            "Éxito",
+                            "La inspección ha sido finalizada correctamente."
+                          );
+                          navigation.replace("CasoDetalle", { id: casoId });
+                        } catch (e) {
+                          Alert.alert(
+                            "Error",
+                            e?.response?.data?.error ||
+                            e?.response?.data?.message ||
+                            "No se pudo completar la inspección."
+                          );
                         }
-                      }
-                    ]
-                  );
-                } else {
-                  try {
-                    await api.patch(`/casos/${casoId}`, { estado: "PENDIENTE_AUTORIZACION" });
+                      },
+                    },
+                  ]
+                );
+              } else {
+                try {
+                  await api.patch(`/casos/${casoId}`, {
+                    estado: "PENDIENTE_AUTORIZACION",
+                  });
 
-                    if (canAutoPre && autoPre) {
-                      await api.post(`/captaciones/${casoId}/vb-pre`);
-                    }
-                    navigation.replace("CasoDetalle", { id: casoId });
-                  } catch (e) {
-                    Alert.alert("Error", e?.response?.data?.message || e?.response?.data?.error || "Error al finalizar captación");
+                  if (canAutoPre && autoPre) {
+                    await api.post(`/captaciones/${casoId}/vb-pre`);
                   }
+                  navigation.replace("CasoDetalle", { id: casoId });
+                } catch (e) {
+                  Alert.alert(
+                    "Error",
+                    e?.response?.data?.message ||
+                    e?.response?.data?.error ||
+                    "Error al finalizar captación"
+                  );
                 }
-              }}
+              }
+            }}
+          >
+            <Text
+              className="text-base font-extrabold uppercase"
+              style={{ color: allOk || esInspeccion ? "#ffffff" : "#94a3b8" }}
             >
-              <Text
-                className={(allOk || esInspeccion) ? "uppercase text-lg font-bold tracking-wide" : "text-lg font-bold tracking-wide"}
-                style={{ color: "#ffffff" }}
-              >
-                {esInspeccion ? "Finalizar inspección" : "Finalizar captación"}
-              </Text>
-              <MaterialIcons name="task-alt" size={20} color="#ffffff" />
-            </TouchableOpacity>
-            {!allOk && !esInspeccion && (
-              <Text className="text-center text-[10px] text-slate-400 mt-2 uppercase tracking-widest font-bold">
-                Completa las fotos obligatorias para finalizar
-              </Text>
-            )}
-          </View>
+              {esInspeccion ? "Finalizar inspección" : "Finalizar captación"}
+            </Text>
+            <MaterialIcons
+              name="check"
+              size={20}
+              color={allOk || esInspeccion ? "#ffffff" : "#031c40ff"}
+            />
+          </TouchableOpacity>
         </View>
-
       </View>
     </KeyboardAvoidingView>
   );

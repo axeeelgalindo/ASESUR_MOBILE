@@ -6,27 +6,20 @@ export default function GlobalKeyboardToolbar() {
     const [keyboardHeight, setKeyboardHeight] = useState(0);
 
     useEffect(() => {
-        // Escuchar eventos de teclado
-        const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
-        const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+        if (Platform.OS !== 'ios') return;
 
         const onShow = (e) => {
-            // Activar animación en iOS para que fluya junto al teclado
-            if (Platform.OS === 'ios') {
-                LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-            }
+            LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
             setKeyboardHeight(e.endCoordinates.height);
         };
 
         const onHide = () => {
-            if (Platform.OS === 'ios') {
-                LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-            }
+            LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
             setKeyboardHeight(0);
         };
 
-        const showListener = Keyboard.addListener(showEvent, onShow);
-        const hideListener = Keyboard.addListener(hideEvent, onHide);
+        const showListener = Keyboard.addListener('keyboardWillShow', onShow);
+        const hideListener = Keyboard.addListener('keyboardWillHide', onHide);
 
         return () => {
             showListener.remove();
@@ -34,7 +27,7 @@ export default function GlobalKeyboardToolbar() {
         };
     }, []);
 
-    if (keyboardHeight === 0) return null;
+    if (Platform.OS !== 'ios' || keyboardHeight === 0) return null;
 
     return (
         <View

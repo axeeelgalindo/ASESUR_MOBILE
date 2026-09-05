@@ -1,7 +1,6 @@
 import React from "react";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
-import { ActivityIndicator } from "react-native-paper";
-import { View } from "react-native";
+import { ActivityIndicator, View } from "react-native";
 import { useAuth } from "../auth/AuthContext";
 
 import LoginScreen from "../screens/LoginScreen";
@@ -10,127 +9,59 @@ import CaptacionCreateWizard from "../screens/CaptacionCreateWizard";
 import CasoDetalleScreen from "../screens/CasoDetalleScreen";
 import TomarFotoScreen from "../screens/TomarFotoScreen";
 import FotosCaptacionScreen from "../screens/FotosCaptacionScreen";
-
-// ✅ IMPORTA TU SCREEN DEL PDF
 import PDFCasoScreen from "../screens/PDFCasoScreen";
 
 const Stack = createNativeStackNavigator();
 
-function CenterLoader() {
-  return (
-    <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
-      <ActivityIndicator size="large" />
-    </View>
-  );
-}
-
 export default function RootNavigator() {
-  const { booting, token } = useAuth();
-
-  if (booting) return <CenterLoader />;
-
-  if (!token) {
-    return (
-      <Stack.Navigator
-        screenOptions={{
-          headerShown: false,
-          statusBarStyle: "dark",
-          statusBarColor: "transparent",
-          statusBarTranslucent: true,
-        }}
-      >
-        <Stack.Screen
-          name="Login"
-          component={LoginScreen}
-          options={{
-            headerShown: false,
-            statusBarStyle: "dark",
-            statusBarColor: "transparent",
-            statusBarTranslucent: true,
-          }}
-        />
-      </Stack.Navigator>
-    );
-  }
+  const { token } = useAuth();
 
   return (
     <Stack.Navigator
       screenOptions={{
         headerShown: false,
-        statusBarStyle: "dark",
-        statusBarColor: "transparent",
-        statusBarTranslucent: true,
+        animation: "slide_from_right",
       }}
     >
-      <Stack.Screen
-        name="Captaciones"
-        component={CaptacionesListScreen}
-        options={{
-          headerShown: false,
-          statusBarStyle: "dark",
-          statusBarColor: "transparent",
-          statusBarTranslucent: true,
-        }}
-      />
-
-      <Stack.Screen
-        name="NuevaCaptacion"
-        component={CaptacionCreateWizard}
-        options={{
-          title: "Nueva Captación",
-          headerShown: false,
-          gestureEnabled: false,
-          statusBarStyle: "dark",
-          statusBarColor: "transparent",
-          statusBarTranslucent: true,
-        }}
-      />
-
-      <Stack.Screen
-        name="CasoDetalle"
-        component={CasoDetalleScreen}
-        options={{
-          headerShown: false,
-          statusBarStyle: "dark",
-          statusBarColor: "transparent",
-          statusBarTranslucent: true,
-        }}
-      />
-
-      <Stack.Screen
-        name="FotosCaptacion"
-        component={FotosCaptacionScreen}
-        options={{
-          headerShown: false,
-          statusBarStyle: "dark",
-          statusBarColor: "transparent",
-          statusBarTranslucent: true,
-        }}
-      />
-
-      <Stack.Screen
-        name="TomarFoto"
-        component={TomarFotoScreen}
-        options={{
-          headerShown: false,
-          statusBarStyle: "light",
-          statusBarColor: "transparent",
-          statusBarTranslucent: true,
-        }}
-      />
-
-      {/* ✅ ESTA ES LA QUE TE FALTABA */}
-      <Stack.Screen
-        name="PDFCasoScreen"
-        component={PDFCasoScreen}
-        options={{
-          title: "PDF (con fotos)",
-          headerShown: true,
-          statusBarStyle: "dark",
-          statusBarColor: "transparent",
-          statusBarTranslucent: true,
-        }}
-      />
+      {!token ? (
+        <Stack.Screen
+          name="Login"
+          component={LoginScreen}
+        />
+      ) : (
+        <Stack.Group>
+          <Stack.Screen
+            name="Captaciones"
+            component={CaptacionesListScreen}
+          />
+          <Stack.Screen
+            name="NuevaCaptacion"
+            component={CaptacionCreateWizard}
+            options={{
+              gestureEnabled: false,
+            }}
+          />
+          <Stack.Screen
+            name="CasoDetalle"
+            component={CasoDetalleScreen}
+          />
+          <Stack.Screen
+            name="FotosCaptacion"
+            component={FotosCaptacionScreen}
+          />
+          <Stack.Screen
+            name="TomarFoto"
+            component={TomarFotoScreen}
+            options={{
+              animation: "fade",
+            }}
+          />
+          <Stack.Screen
+            name="PDFCasoScreen"
+            component={PDFCasoScreen}
+          />
+        </Stack.Group>
+      )}
     </Stack.Navigator>
   );
 }

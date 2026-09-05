@@ -9,6 +9,7 @@ import * as Location from 'expo-location';
 import { validateRut } from 'rut-kit';
 import bancosData from "../utils/bancos.json";
 import CalendarPickerModal, { MONTHS } from "../components/CalendarPickerModal";
+import ScalePressable from "../components/ui/ScalePressable";
 
 const TOTAL = 5;
 
@@ -96,7 +97,7 @@ export default function CaptacionCreateWizard({ navigation }) {
   const [depto, setDepto] = useState("");
   const [region, setRegion] = useState("");
   const [comuna, setComuna] = useState("");
-  const [coordinates, setCoordinates] = useState({ latitude: -33.4489, longitude: -70.6693 }); 
+  const [coordinates, setCoordinates] = useState({ latitude: -33.4489, longitude: -70.6693 });
   const [hasLocation, setHasLocation] = useState(false);
   const [loadingLocation, setLoadingLocation] = useState(false);
   const [modalRegionVisible, setModalRegionVisible] = useState(false);
@@ -305,10 +306,10 @@ export default function CaptacionCreateWizard({ navigation }) {
       let reverse = await Location.reverseGeocodeAsync({ latitude, longitude });
       if (reverse.length > 0) {
         const item = reverse[0];
-        
+
         let parsedNumber = item.streetNumber || "";
         let parsedStreet = item.street || item.name || "";
-        
+
         if (!parsedNumber && item.name) {
           const match = item.name.match(/(.+?)\s+(\d+)$/);
           if (match) {
@@ -316,11 +317,11 @@ export default function CaptacionCreateWizard({ navigation }) {
             parsedNumber = match[2];
           }
         }
-        
+
         setDireccion(parsedStreet);
         setNumeroCalle(parsedNumber);
 
-        const normalizeStr = (str) => 
+        const normalizeStr = (str) =>
           (str || "").toLowerCase()
             .normalize("NFD")
             .replace(/[\u0300-\u036f]/g, "")
@@ -345,12 +346,12 @@ export default function CaptacionCreateWizard({ navigation }) {
           const cleanComunaInput = normalizeStr(rawComuna);
           const searchRegionObj = matchedRegionName ? regiones.find(r => r.name === matchedRegionName) : null;
           const searchIn = searchRegionObj ? searchRegionObj.communes : regiones.flatMap(r => r.communes);
-          
+
           const matchComuna = searchIn.find(c => {
             const cleanC = normalizeStr(c.name);
             return cleanComunaInput.includes(cleanC) || cleanComunaInput.includes(cleanC);
           });
-          
+
           if (matchComuna) {
             setComuna(matchComuna.name);
             if (!matchedRegionName) {
@@ -387,11 +388,11 @@ export default function CaptacionCreateWizard({ navigation }) {
         }}
       >
         <View className="flex-row items-center justify-between px-4 py-3">
-          <TouchableOpacity onPress={back} className="p-2 active:bg-slate-100 rounded-full flex-row items-center">
+          <TouchableOpacity onPress={back} className="p-2 rounded-full flex-row items-center">
             <MaterialIcons name="arrow-back" size={24} color="#334155" />
           </TouchableOpacity>
           <Text className="text-center text-lg font-extrabold text-slate-900 tracking-tight">Nueva Captación</Text>
-          <TouchableOpacity onPress={handleExitPrompt} className="px-3 py-1.5 active:bg-slate-100 rounded-xl">
+          <TouchableOpacity onPress={handleExitPrompt} className="px-3 py-1.5 rounded-xl">
             <Text className="text-xs font-bold text-slate-500 uppercase tracking-wider">Salir</Text>
           </TouchableOpacity>
         </View>
@@ -461,7 +462,7 @@ export default function CaptacionCreateWizard({ navigation }) {
                 <View>
                   <Text className="text-xs font-black text-slate-600 uppercase tracking-wider mb-2 ml-0.5">Fecha de nacimiento</Text>
                   <TouchableOpacity
-                    className="w-full h-14 px-4 rounded-2xl border border-slate-200 bg-slate-50 flex-row items-center justify-between active:bg-blue-50/40"
+                    className="w-full h-14 px-4 rounded-2xl border border-slate-200 bg-slate-50 flex-row items-center justify-between"
                     onPress={() => setBirthDateModalVisible(true)}
                     activeOpacity={0.7}
                   >
@@ -531,7 +532,8 @@ export default function CaptacionCreateWizard({ navigation }) {
                 <TouchableOpacity
                   onPress={handleGetLocation}
                   disabled={loadingLocation}
-                  className="my-1 flex-row items-center justify-center gap-2 py-3 bg-blue-50 rounded-2xl border border-blue-200 active:bg-blue-100"
+                  activeOpacity={0.7}
+                  className="my-1 flex-row items-center justify-center gap-2 py-3 bg-blue-50 rounded-2xl border border-blue-200"
                 >
                   <MaterialIcons name="my-location" size={18} color="#1152d4" />
                   <Text className="text-[#1152d4] font-black text-xs uppercase tracking-wider">
@@ -695,7 +697,7 @@ export default function CaptacionCreateWizard({ navigation }) {
                     Indica el día aproximado en que se produjo el incidente o daño reportado por el cliente.
                   </Text>
                   <TouchableOpacity
-                    className="w-full h-14 px-4 rounded-2xl border border-slate-200 bg-slate-50 flex-row items-center justify-between active:bg-amber-50/40"
+                    className="w-full h-14 px-4 rounded-2xl border border-slate-200 bg-slate-50 flex-row items-center justify-between"
                     onPress={() => setOccDateModalVisible(true)}
                     activeOpacity={0.7}
                   >
@@ -779,7 +781,7 @@ export default function CaptacionCreateWizard({ navigation }) {
                       {autorizacionAutomatica && <MaterialIcons name="check" size={18} color="white" />}
                     </View>
                     <View className="flex-1">
-                      <Text className="text-slate-900 font-extrabold text-[15px]">Pasar directo a Pre-Siniestro</Text>
+                      <Text className="text-slate-900 font-extrabold text-[15px]">¿Pasar directo a pre-siniestro?</Text>
                       <Text className="text-slate-500 text-xs mt-0.5 font-medium">Autoriza el traspaso automático a revisión de liquidación.</Text>
                     </View>
                   </TouchableOpacity>
@@ -790,22 +792,22 @@ export default function CaptacionCreateWizard({ navigation }) {
             {/* BOTONES ATRÁS / SIGUIENTE / FINALIZAR AL FINAL DE LOS CAMPOS */}
             <View className="mt-4 mb-16">
               <View className="flex-row gap-4 w-full h-14">
-                <TouchableOpacity
-                  className={`flex-1 rounded-2xl bg-slate-200 border border-slate-300/60 justify-center items-center ${busy ? 'opacity-50' : ''} active:bg-slate-300`}
+                <ScalePressable
+                  className={`flex-1 rounded-2xl bg-slate-200 border border-slate-300/60 justify-center items-center ${busy ? 'opacity-50' : ''}`}
                   onPress={back}
                   disabled={busy}
                 >
-                  <Text className="text-slate-700 font-bold text-base">Atrás</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  className="flex-[2] rounded-2xl justify-center items-center bg-[#1152d4] shadow-md active:bg-blue-700"
+                  <Text className="text-slate-700 font-bold text-base uppercase">Volver</Text>
+                </ScalePressable>
+                <ScalePressable
+                  className="flex-[2] rounded-2xl justify-center items-center bg-blue-600 shadow-md"
                   onPress={step < TOTAL ? next : () => setShowFinishModal(true)}
                   disabled={busy}
                 >
                   <Text className="text-white font-black text-base uppercase tracking-wider">
                     {busy ? "Enviando..." : step < TOTAL ? "Siguiente" : "Finalizar"}
                   </Text>
-                </TouchableOpacity>
+                </ScalePressable>
               </View>
             </View>
 
@@ -827,14 +829,14 @@ export default function CaptacionCreateWizard({ navigation }) {
               Si sales ahora se perderán todos los datos que has ingresado en esta captación.
             </Text>
             <View className="w-full gap-3">
-              <TouchableOpacity
-                className="w-full h-13 py-3.5 bg-[#1152d4] rounded-2xl items-center justify-center shadow-sm active:bg-blue-700"
+              <ScalePressable
+                className="w-full h-13 py-3.5 bg-blue-600 rounded-2xl items-center justify-center shadow-md"
                 onPress={() => setShowExitModal(false)}
               >
                 <Text className="text-white font-extrabold text-base">Continuar editando</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                className="w-full h-12 py-3 bg-slate-100 rounded-2xl items-center justify-center border border-slate-200 active:bg-slate-200"
+              </ScalePressable>
+              <ScalePressable
+                className="w-full h-12 py-3 bg-slate-100 rounded-2xl items-center justify-center border border-slate-200"
                 onPress={() => {
                   isNavigatingAwayRef.current = true;
                   setShowExitModal(false);
@@ -846,7 +848,7 @@ export default function CaptacionCreateWizard({ navigation }) {
                 }}
               >
                 <Text className="text-rose-600 font-bold text-sm">Salir sin guardar</Text>
-              </TouchableOpacity>
+              </ScalePressable>
             </View>
           </View>
         </View>
@@ -859,13 +861,13 @@ export default function CaptacionCreateWizard({ navigation }) {
         <View className="flex-1 bg-black/60 items-center justify-center px-6">
           <View className="bg-white rounded-3xl p-6 w-full max-w-sm shadow-2xl items-center border border-slate-100">
             <View className="w-16 h-16 rounded-full bg-blue-50 border border-blue-200 items-center justify-center mb-4">
-              <MaterialIcons name="task-alt" size={36} color="#1152d4" />
+              <MaterialIcons name="task-alt" size={36} color="#2563eb" />
             </View>
             <Text className="text-xl font-black text-slate-900 text-center mb-2">Confirmar Registro</Text>
             <Text className="text-sm text-slate-500 text-center leading-relaxed mb-4 font-medium">
               ¿Estás seguro de finalizar y crear este caso en la plataforma central de ASESUR?
             </Text>
-            
+
             <View className="w-full bg-slate-50 rounded-2xl p-3.5 border border-slate-200 mb-6 space-y-1">
               <Text className="text-xs font-bold text-slate-800" numberOfLines={1}>👤 {nombreCliente || "Cliente"}</Text>
               <Text className="text-xs text-slate-600 font-medium">🆔 RUT: {rutCliente}</Text>
@@ -873,18 +875,18 @@ export default function CaptacionCreateWizard({ navigation }) {
             </View>
 
             <View className="w-full gap-3">
-              <TouchableOpacity
-                className="w-full h-13 py-3.5 bg-[#1152d4] rounded-2xl items-center justify-center shadow-md active:bg-blue-700"
+              <ScalePressable
+                className="w-full h-13 py-3.5 bg-blue-600 rounded-2xl items-center justify-center shadow-md"
                 onPress={submit}
               >
-                <Text className="text-white font-extrabold text-base">Sí, Finalizar Captación</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                className="w-full h-12 py-3 bg-slate-100 rounded-2xl items-center justify-center border border-slate-200 active:bg-slate-200"
+                <Text className="text-white font-extrabold text-base">Subir información</Text>
+              </ScalePressable>
+              <ScalePressable
+                className="w-full h-12 py-3 bg-slate-100 rounded-2xl items-center justify-center border border-slate-200"
                 onPress={() => setShowFinishModal(false)}
               >
-                <Text className="text-slate-700 font-bold text-sm">Revisar datos</Text>
-              </TouchableOpacity>
+                <Text className="text-slate-700 font-bold text-sm">Volver</Text>
+              </ScalePressable>
             </View>
           </View>
         </View>
@@ -923,13 +925,13 @@ export default function CaptacionCreateWizard({ navigation }) {
         minYear={new Date().getFullYear() - 15}
         maxYear={new Date().getFullYear()}
       />
-      
-      <SelectorModal 
-        visible={modalRegionVisible} 
-        title="Región" 
-        data={regiones.map(r => r.name)} 
-        value={region} 
-        onSelect={(val) => { 
+
+      <SelectorModal
+        visible={modalRegionVisible}
+        title="Región"
+        data={regiones.map(r => r.name)}
+        value={region}
+        onSelect={(val) => {
           if (val !== region) {
             setRegion(val);
             const newRegionObj = regiones.find(r => r.name === val);
@@ -938,22 +940,22 @@ export default function CaptacionCreateWizard({ navigation }) {
               setComuna("");
             }
           }
-        }} 
-        onClose={() => setModalRegionVisible(false)} 
+        }}
+        onClose={() => setModalRegionVisible(false)}
       />
       <SelectorModal visible={modalComunaVisible} title="Comuna" data={regiones.find(r => r.name === region)?.communes.map(c => c.name) || []} value={comuna} onSelect={setComuna} onClose={() => setModalComunaVisible(false)} />
-      
-      <SelectorModal 
-        visible={modalBancoVisible} 
-        title="Banco del Cliente" 
-        data={bancosData} 
-        value={banco} 
-        onSelect={(val) => { 
-          setBanco(val); 
-          if (val !== "Otro") setOtroBanco(""); 
-        }} 
-        onClose={() => setModalBancoVisible(false)} 
-        searchable 
+
+      <SelectorModal
+        visible={modalBancoVisible}
+        title="Banco del Cliente"
+        data={bancosData}
+        value={banco}
+        onSelect={(val) => {
+          setBanco(val);
+          if (val !== "Otro") setOtroBanco("");
+        }}
+        onClose={() => setModalBancoVisible(false)}
+        searchable
       />
     </View>
   );
@@ -1009,8 +1011,8 @@ function SelectorModal({ visible, title, data, value, onSelect, onClose, isMonth
               const itemLabel = item.name || item;
               const isSelected = itemValue === value;
               return (
-                <TouchableOpacity 
-                  className={`py-4 px-6 border-b border-slate-50 flex-row justify-between ${isSelected ? 'bg-blue-50' : ''}`} 
+                <TouchableOpacity
+                  className={`py-4 px-6 border-b border-slate-50 flex-row justify-between ${isSelected ? 'bg-blue-50' : ''}`}
                   onPress={() => { onSelect(itemValue); onClose(); setSearch(""); }}
                 >
                   <Text className={`text-base ${isSelected ? 'font-bold text-[#1152d4]' : 'text-slate-700'}`}>{itemLabel}</Text>

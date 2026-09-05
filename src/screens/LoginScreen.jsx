@@ -1,7 +1,18 @@
 import React, { useState } from "react";
-import { KeyboardAvoidingView, Platform, View, Text, TextInput, TouchableOpacity, Image, ScrollView, ActivityIndicator, Alert, useColorScheme } from "react-native";
+import {
+  KeyboardAvoidingView,
+  Platform,
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  Image,
+  ScrollView,
+  ActivityIndicator,
+  useColorScheme,
+} from "react-native";
 import { useAuth } from "../auth/AuthContext";
-import { MaterialIcons } from '@expo/vector-icons';
+import { MaterialIcons } from "@expo/vector-icons";
 import { useSafeScreenInsets } from "../utils/safeArea";
 
 export default function LoginScreen() {
@@ -13,7 +24,8 @@ export default function LoginScreen() {
   const [error, setError] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
-  const [rutBusquilla, setRutBusquilla] = useState("");
+  const [focusedField, setFocusedField] = useState(null);
+
   const colorScheme = useColorScheme();
   const isDark = colorScheme === "dark";
 
@@ -24,21 +36,12 @@ export default function LoginScreen() {
       await signIn(email.trim(), password);
     } catch (e) {
       console.log("LOGIN ERROR", e?.response?.data || e.message);
-      setError(e?.response?.data?.message || e.message || "Error al iniciar sesión");
+      setError(
+        e?.response?.data?.message || e.message || "Error al iniciar sesión"
+      );
     } finally {
       setBusy(false);
     }
-  };
-
-  const onBuscarCaso = () => {
-    if (!rutBusquilla.trim()) {
-      Alert.alert("RUT Inválido", "Por favor ingresa un número de RUT.");
-      return;
-    }
-    Alert.alert(
-      "Consulta de Estado",
-      `Buscando información para el RUT:\n${rutBusquilla}\n\n*La pantalla móvil completa de progreso estará disponible en la próxima actualización. Te invitamos a consultar desde tu navegador web por ahora.*`
-    );
   };
 
   return (
@@ -47,68 +50,115 @@ export default function LoginScreen() {
         style={{ flex: 1 }}
         behavior={Platform.OS === "ios" ? "padding" : "height"}
       >
-        <ScrollView contentContainerStyle={{ flexGrow: 1, justifyContent: "center", alignItems: "center", padding: 16, paddingTop: Math.max(topPadding, 24), paddingBottom: Math.max(bottomPadding, 24) }}>
-          {/* Decorative backgrounds */}
-          <View className="absolute -top-24 -left-24 w-96 h-96 bg-[#1152d4]/5 rounded-full" />
-          <View className="absolute -bottom-24 -right-24 w-96 h-96 bg-[#1152d4]/5 rounded-full" />
+        <ScrollView
+          contentContainerStyle={{
+            flexGrow: 1,
+            justifyContent: "center",
+            alignItems: "center",
+            padding: 20,
+            paddingTop: Math.max(topPadding, 24),
+            paddingBottom: Math.max(bottomPadding, 24),
+          }}
+          keyboardShouldPersistTaps="handled"
+        >
+          {/* Decorative ambient gradients */}
+          <View pointerEvents="none" className="absolute -top-32 -left-32 w-80 h-80 bg-blue-500/10 rounded-full blur-3xl" />
+          <View pointerEvents="none" className="absolute -bottom-32 -right-32 w-80 h-80 bg-indigo-500/10 rounded-full blur-3xl" />
 
           {/* Login Card */}
-          <View className="w-full max-w-[440px] bg-white dark:bg-slate-900 rounded-xl overflow-hidden border border-slate-100 dark:border-slate-800 shadow-sm" style={{ elevation: 2 }}>
-
-            {/* Top App Bar / Logo Section */}
-            <View className="items-center pt-10 pb-6 px-6">
-              <View className="w-16 h-16 bg-[#1152d4]/10 rounded-full flex items-center justify-center mb-6 overflow-hidden">
+          <View
+            className="w-full max-w-[420px] bg-white dark:bg-slate-900 rounded-3xl overflow-hidden border border-slate-200/80 dark:border-slate-800 shadow-xl"
+            style={{
+              shadowColor: "#0f172a",
+              shadowOffset: { width: 0, height: 10 },
+              shadowOpacity: 0.08,
+              shadowRadius: 20,
+              elevation: 4,
+            }}
+          >
+            {/* Top Logo & Welcome Section */}
+            <View className="items-center pt-10 pb-4 px-6">
+              <View className="w-18 h-18 bg-blue-50 dark:bg-blue-950/60 border border-blue-100 dark:border-blue-900 rounded-2xl p-2.5 items-center justify-center mb-5 shadow-sm">
                 <Image
-                  source={require('../../assets/icon.png')}
-                  style={{ width: 44, height: 44, borderRadius: 22 }}
+                  source={require("../../assets/icon.png")}
+                  style={{ width: 48, height: 48, borderRadius: 12 }}
                   resizeMode="cover"
                 />
               </View>
-              <Text className="text-slate-900 dark:text-white text-2xl font-bold tracking-tight text-center">
-                Bienvenido
+              <Text className="text-slate-900 dark:text-white text-2xl font-extrabold tracking-tight text-center">
+                ASESUR Móvil
               </Text>
-              <Text className="text-slate-500 dark:text-slate-400 text-base mt-2 text-center">
-                Inicia sesión para continuar
+              <Text className="text-slate-500 dark:text-slate-400 text-sm mt-1 text-center font-medium">
+                Gestión en terreno y captaciones
               </Text>
             </View>
 
             {/* Login Form */}
-            <View className="px-8 pb-10">
+            <View className="px-6 pb-8 pt-2">
               {/* Email Field */}
-              <View className="mb-5">
-                <View className="flex-row items-center gap-2 mb-2">
-                  <MaterialIcons name="mail-outline" size={18} color="#1152d4" />
-                  <Text className="text-slate-700 dark:text-slate-300 text-sm font-semibold flex-1">Correo electrónico</Text>
+              <View className="mb-4">
+                <Text className="text-slate-700 dark:text-slate-300 text-xs font-bold uppercase tracking-wider mb-2">
+                  Correo electrónico
+                </Text>
+                <View
+                  className={`flex-row items-center rounded-xl border bg-slate-50/80 dark:bg-slate-800/80 px-3.5 h-12 ${
+                    focusedField === "email"
+                      ? "border-blue-600 bg-white dark:bg-slate-900 ring-2 ring-blue-500/10"
+                      : "border-slate-200 dark:border-slate-700"
+                  }`}
+                >
+                  <MaterialIcons
+                    name="mail-outline"
+                    size={20}
+                    color={focusedField === "email" ? "#2563eb" : "#94a3b8"}
+                    style={{ marginRight: 8 }}
+                  />
+                  <TextInput
+                    className="flex-1 text-slate-900 dark:text-white text-[15px] h-full"
+                    placeholder="usuario@asesur.cl"
+                    placeholderTextColor="#94a3b8"
+                    autoCapitalize="none"
+                    keyboardType="email-address"
+                    value={email}
+                    onChangeText={setEmail}
+                    onFocus={() => setFocusedField("email")}
+                    onBlur={() => setFocusedField(null)}
+                  />
                 </View>
-                <TextInput
-                  className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white h-12 px-4 focus:border-[#1152d4] dark:focus:border-blue-500"
-                  placeholder="usuario@asesur.cl"
-                  placeholderTextColor="#94a3b8"
-                  autoCapitalize="none"
-                  keyboardType="email-address"
-                  value={email}
-                  onChangeText={setEmail}
-                />
               </View>
 
               {/* Password Field */}
-              <View className="mb-5">
-                <View className="flex-row items-center gap-2 mb-2">
-                  <MaterialIcons name="lock-outline" size={18} color="#1152d4" />
-                  <Text className="text-slate-700 dark:text-slate-300 text-sm font-semibold flex-1">Contraseña</Text>
-                </View>
-                <View className="relative justify-center">
+              <View className="mb-4">
+                <Text className="text-slate-700 dark:text-slate-300 text-xs font-bold uppercase tracking-wider mb-2">
+                  Contraseña
+                </Text>
+                <View
+                  className={`flex-row items-center rounded-xl border bg-slate-50/80 dark:bg-slate-800/80 px-3.5 h-12 ${
+                    focusedField === "password"
+                      ? "border-blue-600 bg-white dark:bg-slate-900 ring-2 ring-blue-500/10"
+                      : "border-slate-200 dark:border-slate-700"
+                  }`}
+                >
+                  <MaterialIcons
+                    name="lock-outline"
+                    size={20}
+                    color={focusedField === "password" ? "#2563eb" : "#94a3b8"}
+                    style={{ marginRight: 8 }}
+                  />
                   <TextInput
-                    className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white h-12 pl-4 pr-12 focus:border-[#1152d4] dark:focus:border-blue-500"
+                    className="flex-1 text-slate-900 dark:text-white text-[15px] h-full"
                     placeholder="••••••••"
                     placeholderTextColor="#94a3b8"
                     secureTextEntry={!showPassword}
                     value={password}
                     onChangeText={setPassword}
+                    onFocus={() => setFocusedField("password")}
+                    onBlur={() => setFocusedField(null)}
                   />
                   <TouchableOpacity
-                    className="absolute right-3 p-2"
+                    className="p-1"
                     onPress={() => setShowPassword(!showPassword)}
+                    activeOpacity={0.7}
                   >
                     <MaterialIcons
                       name={showPassword ? "visibility-off" : "visibility"}
@@ -119,51 +169,76 @@ export default function LoginScreen() {
                 </View>
               </View>
 
-              {/* Error Message */}
+              {/* Error Alert */}
               {!!error && (
-                <Text className="text-red-500 text-sm text-center mb-3 font-semibold">{error}</Text>
+                <View className="flex-row items-center bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900 p-3 rounded-xl mb-4">
+                  <MaterialIcons
+                    name="error-outline"
+                    size={18}
+                    color="#e11d48"
+                    style={{ marginRight: 8 }}
+                  />
+                  <Text className="text-rose-700 dark:text-rose-300 text-xs font-medium flex-1">
+                    {error}
+                  </Text>
+                </View>
               )}
 
-              {/* Remember & Forgot */}
+              {/* Remember Checkbox */}
               <View className="flex-row items-center justify-between py-1 mb-6">
                 <TouchableOpacity
-                  className="flex-row items-center gap-2"
+                  className="flex-row items-center"
                   onPress={() => setRememberMe(!rememberMe)}
                   activeOpacity={0.7}
                 >
-                  <View className={`w-4 h-4 rounded border justify-center items-center ${rememberMe ? 'bg-[#1152d4] border-[#1152d4]' : 'bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-600'}`}>
-                    {rememberMe && <MaterialIcons name="check" size={12} color="#ffffff" />}
+                  <View
+                    className={`w-5 h-5 rounded-md border items-center justify-center mr-2.5 ${
+                      rememberMe
+                        ? "bg-blue-600 border-blue-600"
+                        : "bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-600"
+                    }`}
+                  >
+                    {rememberMe && (
+                      <MaterialIcons name="check" size={14} color="#ffffff" />
+                    )}
                   </View>
-                  <Text className="text-sm text-slate-500 dark:text-slate-400">Recordarme</Text>
+                  <Text className="text-sm text-slate-600 dark:text-slate-400 font-medium">
+                    Recordarme en este equipo
+                  </Text>
                 </TouchableOpacity>
-
               </View>
 
               {/* Login Button */}
               <TouchableOpacity
-                className="w-full h-12 bg-[#2563eb] dark:bg-blue-600 rounded-lg items-center justify-center flex-row gap-2"
-                style={{ elevation: 3, shadowColor: '#2563eb', shadowOpacity: 0.25, shadowRadius: 8, shadowOffset: { width: 0, height: 4 } }}
-                activeOpacity={0.8}
+                className="w-full h-12 bg-blue-600 rounded-xl items-center justify-center flex-row shadow-md"
+                style={{
+                  shadowColor: "#2563eb",
+                  shadowOffset: { width: 0, height: 4 },
+                  shadowOpacity: 0.3,
+                  shadowRadius: 8,
+                  elevation: 3,
+                }}
+                activeOpacity={0.7}
                 onPress={onSubmit}
                 disabled={busy}
               >
                 {busy ? (
-                  <ActivityIndicator color="#ffffff" />
+                  <ActivityIndicator color="#ffffff" size="small" />
                 ) : (
                   <>
-                    <Text className="text-white font-bold text-base">Entrar</Text>
-                    <MaterialIcons name="login" size={20} color="#ffffff" />
+                    <Text className="text-white font-bold text-base mr-2">
+                      Iniciar Sesión
+                    </Text>
+                    <MaterialIcons
+                      name="arrow-forward"
+                      size={18}
+                      color="#ffffff"
+                    />
                   </>
                 )}
               </TouchableOpacity>
-
-
             </View>
-
           </View>
-
-
-
         </ScrollView>
       </KeyboardAvoidingView>
     </View>

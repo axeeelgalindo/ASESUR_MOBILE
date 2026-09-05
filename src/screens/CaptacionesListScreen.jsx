@@ -1,26 +1,48 @@
 import React, { useCallback, useEffect, useState, useMemo } from "react";
-import { FlatList, RefreshControl, View, Text, TouchableOpacity, ImageBackground, ActivityIndicator, Modal, TextInput } from "react-native";
+import {
+  FlatList,
+  RefreshControl,
+  View,
+  Text,
+  TouchableOpacity,
+  ImageBackground,
+  Modal,
+  TextInput,
+} from "react-native";
 import { useSafeScreenInsets } from "../utils/safeArea";
 import { useAuth } from "../auth/AuthContext";
 import { api, PUBLIC_URL } from "../../api/client";
-import { MaterialIcons } from '@expo/vector-icons';
+import { MaterialIcons } from "@expo/vector-icons";
 import chileData from "../utils/comunas.json";
+import StatusBadge from "../components/ui/StatusBadge";
+import SkeletonList from "../components/ui/SkeletonList";
 
 const EmptyListState = ({ refreshing, error, activeTab }) => {
   if (refreshing) return null;
   return (
-    <View className="flex-1 justify-center px-4 py-8">
+    <View className="flex-1 justify-center px-4 py-12">
       {error ? (
-        <View className="bg-red-50 border border-red-200 p-4 rounded-xl mb-4 mt-2">
-          <Text className="text-red-600 font-semibold">{error}</Text>
+        <View className="bg-rose-50 border border-rose-200/80 p-5 rounded-2xl mb-4">
+          <View className="flex-row items-center gap-2 mb-1">
+            <MaterialIcons name="error-outline" size={20} color="#e11d48" />
+            <Text className="text-rose-800 font-bold">Error de conexión</Text>
+          </View>
+          <Text className="text-rose-600 text-xs">{error}</Text>
         </View>
       ) : (
-        <View className="bg-white border border-slate-200 rounded-2xl p-8 items-center justify-center mt-2 border-dashed">
-          <MaterialIcons name="folder-open" size={48} color="#cbd5e1" />
-          <Text className="text-slate-500 text-center font-medium mt-3">
+        <View className="bg-white border border-slate-200/70 rounded-3xl p-10 items-center justify-center border-dashed shadow-sm">
+          <View className="w-16 h-16 rounded-full bg-slate-50 items-center justify-center mb-3 border border-slate-100">
+            <MaterialIcons name="folder-open" size={32} color="#94a3b8" />
+          </View>
+          <Text className="text-slate-800 font-bold text-base text-center">
             {activeTab === "CAPTACIONES"
-              ? "No hay captaciones registradas en esta categoría."
-              : "No tienes inspecciones pendientes asignadas."}
+              ? "Sin captaciones disponibles"
+              : "Sin inspecciones asignadas"}
+          </Text>
+          <Text className="text-slate-400 text-xs text-center mt-1 max-w-[240px]">
+            {activeTab === "CAPTACIONES"
+              ? "Crea una nueva captación con el botón flotante inferior."
+              : "No tienes inspecciones pendientes en este momento."}
           </Text>
         </View>
       )}
@@ -28,26 +50,20 @@ const EmptyListState = ({ refreshing, error, activeTab }) => {
   );
 };
 
-// Formato de fechas amigable (ej: "Actualizado hace 15 minutos" aproxima a string)
 function formatTimeAgo(dateString) {
   if (!dateString) return "";
   const date = new Date(dateString);
   const diff = Math.floor((new Date() - date) / 1000);
-  if (diff < 60 * 60) return `Actualizado hace ${Math.floor(diff / 60)} min`;
-  if (diff < 60 * 60 * 24) return `Actualizado hace ${Math.floor(diff / 3600)} horas`;
-  return `Actualizado el ${date.toLocaleDateString("es-CL")}`;
+  if (diff < 60 * 60) return `Hace ${Math.max(1, Math.floor(diff / 60))} min`;
+  if (diff < 60 * 60 * 24) return `Hace ${Math.floor(diff / 3600)} h`;
+  return date.toLocaleDateString("es-CL");
 }
-
-const getEstadoStyle = (estado) => {
-  if (estado === "ABIERTO") return "bg-green-100 text-green-700 border-green-200";
-  if (estado === "CERRADO") return "bg-slate-100 text-slate-600 border-slate-200";
-  return "bg-blue-100 text-blue-700 border-blue-200";
-};
 
 export default function CaptacionesListScreen({ navigation }) {
   const { me, signOut } = useAuth();
   const { top: topPadding, bottom: bottomPadding } = useSafeScreenInsets();
   const [refreshing, setRefreshing] = useState(false);
+  const [loadingInitial, setLoadingInitial] = useState(true);
   const [items, setItems] = useState([]);
   const [error, setError] = useState("");
   const [activeRegion, setActiveRegion] = useState("");
@@ -65,12 +81,14 @@ export default function CaptacionesListScreen({ navigation }) {
       if (activeTab === "CAPTACIONES") {
         params.etapa = "CAPTACION";
       } else {
-        params.estado = "INSPECCION";
+        params.etapa = "SINIESTRO";
       }
       const res = await api.get("/casos", { params });
       setItems(res.data?.items || []);
     } catch (e) {
       setError(e?.response?.data?.message || "No se pudieron cargar casos");
+    } finally {
+      setLoadingInitial(false);
     }
   }, [activeTab]);
 
@@ -90,34 +108,36 @@ export default function CaptacionesListScreen({ navigation }) {
     setRefreshing(false);
   };
 
-  // 1. Obtener lista estática de regiones desde el JSON
   const regionesDisponibles = useMemo(() => {
-    return chileData.regions.map(r => r.name);
+    return chileData.regions.map((r) => r.name);
   }, []);
 
-  // 2. Obtener lista estática de comunas según la región seleccionada desde el JSON
   const comunasDisponibles = useMemo(() => {
     if (!activeRegion) return [];
-    const regionObj = chileData.regions.find(r => r.name === activeRegion);
-    return regionObj ? regionObj.communes.map(c => c.name) : [];
+    const regionObj = chileData.regions.find((r) => r.name === activeRegion);
+    return regionObj ? regionObj.communes.map((c) => c.name) : [];
   }, [activeRegion]);
 
-  // 3. Aplicar filtro triple localmente (Región, Comuna, Dirección)
   const filteredItems = useMemo(() => {
-    return items.filter(i => {
+    return items.filter((i) => {
       if (activeRegion && i.region?.trim() !== activeRegion) return false;
       if (activeComuna && i.comuna?.trim() !== activeComuna) return false;
       if (searchDireccion) {
         const direccionLower = searchDireccion.toLowerCase();
         const dir = i.direccion?.toLowerCase() || "";
         const nom = i.nombreCliente?.toLowerCase() || "";
-        if (!dir.includes(direccionLower) && !nom.includes(direccionLower)) return false;
+        const folio = String(i.folio || "").toLowerCase();
+        if (
+          !dir.includes(direccionLower) &&
+          !nom.includes(direccionLower) &&
+          !folio.includes(direccionLower)
+        )
+          return false;
       }
       return true;
     });
   }, [items, activeRegion, activeComuna, searchDireccion]);
 
-  // 4. Limpieza de comunas si se cambia la región
   useEffect(() => {
     if (activeComuna && !comunasDisponibles.includes(activeComuna)) {
       setActiveComuna("");
@@ -125,95 +145,140 @@ export default function CaptacionesListScreen({ navigation }) {
   }, [comunasDisponibles, activeComuna]);
 
   const renderItem = ({ item }) => {
-    const estadoClass = getEstadoStyle(item.estado);
-    const fotoPrincipal = item.fotos?.find(f => f.parteCasa === "FACHADA") || item.fotos?.[0];
+    const fotoPrincipal =
+      item.fotos?.find((f) => f.parteCasa === "FACHADA") || item.fotos?.[0];
 
     return (
       <TouchableOpacity
-        activeOpacity={0.8}
         onPress={() => navigation.navigate("CasoDetalle", { id: item.id })}
-        className="bg-white rounded-2xl border border-slate-200 overflow-hidden mb-4 flex-row min-h-[160px]"
-        style={{ shadowColor: "#000", shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 2, elevation: 1 }}
+        activeOpacity={0.7}
+        className="bg-white rounded-3xl border border-slate-200/70 overflow-hidden mb-3.5 flex-row min-h-[150px] shadow-sm"
+        style={{
+          shadowColor: "#0f172a",
+          shadowOffset: { width: 0, height: 2 },
+          shadowOpacity: 0.04,
+          shadowRadius: 8,
+          elevation: 2,
+        }}
       >
-        {/* Card Image Area (Miniatura Izquierda) */}
+        {/* Card Image Thumbnail */}
         <View className="w-32 bg-slate-100 relative overflow-hidden flex-shrink-0">
           {fotoPrincipal ? (
             <ImageBackground
-              source={{ uri: `${PUBLIC_URL}${encodeURI(fotoPrincipal.urlArchivo)}` }}
+              source={{
+                uri: `${PUBLIC_URL}${encodeURI(fotoPrincipal.urlArchivo)}`,
+              }}
               className="absolute inset-0"
               resizeMode="cover"
             />
           ) : (
-            <View className="absolute inset-0 bg-slate-200 flex flex-col items-center justify-center">
-              <MaterialIcons name="image-not-supported" size={32} color="#94a3b8" />
-              <Text className="text-[10px] text-slate-400 mt-1 font-medium">Sin foto</Text>
+            <View className="absolute inset-0 bg-slate-100 flex flex-col items-center justify-center">
+              <MaterialIcons
+                name="image-not-supported"
+                size={28}
+                color="#cbd5e1"
+              />
+              <Text className="text-[10px] text-slate-400 mt-1 font-semibold">
+                Sin foto
+              </Text>
             </View>
           )}
-          <View className="absolute top-2 left-2 rounded-md border border-slate-200 px-2 py-1" style={{ backgroundColor: "rgba(255,255,255,0.95)" }}>
-            <Text className="text-[9px] font-bold text-slate-700 tracking-widest uppercase">
-              {item.fotos?.length || 0} Fotos
+
+          {/* Photo count floating pill */}
+          <View className="absolute top-2.5 left-2.5 rounded-full px-2 py-0.5 bg-black/60 backdrop-blur-md">
+            <Text className="text-[10px] font-bold text-white tracking-wider">
+              📷 {item.fotos?.length || 0}
             </Text>
           </View>
         </View>
 
-        {/* Card Content Area (Derecha) */}
-        <View className="p-4 flex-1 flex-col justify-between">
+        {/* Card Content */}
+        <View className="p-3.5 flex-1 flex-col justify-between">
           <View>
-            <View className="flex-row justify-between items-start mb-2">
-              <View className="flex-1 pr-2">
-                <Text className="text-[15px] font-bold text-slate-900 leading-tight">Folio {item.folio ?? "-"}</Text>
-                <Text className="text-[11px] font-semibold text-[#1152d4] uppercase tracking-wider mt-0.5">{item.tipo}</Text>
+            <View className="flex-row justify-between items-start mb-1.5">
+              <View className="flex-1 pr-1">
+                <Text className="text-[15px] font-extrabold text-slate-900 tracking-tight">
+                  Folio {item.folio ?? "-"}
+                </Text>
+                <Text className="text-[11px] font-semibold text-blue-600 uppercase tracking-wider">
+                  {item.tipo || "CAPTACIÓN"}
+                </Text>
               </View>
-              <View className={`px-2 py-1 rounded border ${estadoClass.split(' ').filter(c => c.startsWith('bg-') || c.startsWith('border-')).join(' ')}`}>
-                <Text className={`text-[9px] font-bold uppercase tracking-wider ${estadoClass.split(' ').find(c => c.startsWith('text-'))}`}>{item.estado}</Text>
-              </View>
+              <StatusBadge status={item.estado} size="sm" />
             </View>
 
-            {/* Información del Cliente */}
+            {/* Client Info */}
             {(item.nombreCliente || item.rutCliente) && (
-              <View className="mb-3 space-y-1 bg-slate-50 p-2.5 rounded-lg border border-slate-100">
+              <View className="mb-2 bg-slate-50/80 p-2 rounded-xl border border-slate-100">
                 {item.nombreCliente && (
-                  <View className="flex-row items-center gap-1.5">
-                    <MaterialIcons name="person-outline" size={14} color="#64748b" />
-                    <Text className="text-[12px] font-bold text-slate-700 flex-1 leading-tight" numberOfLines={1}>{item.nombreCliente}</Text>
+                  <View className="flex-row items-center">
+                    <MaterialIcons
+                      name="person-outline"
+                      size={13}
+                      color="#475569"
+                      style={{ marginRight: 4 }}
+                    />
+                    <Text
+                      className="text-xs font-bold text-slate-700 flex-1"
+                      numberOfLines={1}
+                    >
+                      {item.nombreCliente}
+                    </Text>
                   </View>
                 )}
                 {item.rutCliente && (
-                  <View className="flex-row items-center gap-1.5">
-                    <MaterialIcons name="badge" size={14} color="#94a3b8" />
-                    <Text className="text-[11px] text-slate-500 font-medium">RUT {item.rutCliente}</Text>
-                  </View>
+                  <Text className="text-[10px] text-slate-400 font-medium ml-4">
+                    RUT {item.rutCliente}
+                  </Text>
                 )}
               </View>
             )}
 
-            {/* Dirección Destacada */}
-            <View className="p-2.5 rounded-lg border flex-row items-start gap-1.5 mb-2" style={{ backgroundColor: "rgba(254, 252, 232, 0.8)", borderColor: "rgba(253, 230, 138, 0.8)" }}>
-              <View className="mt-0.5">
-                <MaterialIcons name="location-on" size={16} color="#d97706" />
-              </View>
+            {/* Address */}
+            <View className="flex-row items-start bg-amber-50/60 border border-amber-200/50 p-2 rounded-xl mb-1">
+              <MaterialIcons
+                name="location-on"
+                size={14}
+                color="#d97706"
+                style={{ marginRight: 4, marginTop: 1 }}
+              />
               <View className="flex-1">
-                <Text className="text-[12px] font-bold text-slate-800 leading-tight mb-0.5" numberOfLines={2}>
+                <Text
+                  className="text-[11px] font-bold text-slate-800 leading-tight"
+                  numberOfLines={1}
+                >
                   {item.direccion?.trim() || "Dirección no especificada"}
                 </Text>
-                <Text className="text-[11px] font-medium uppercase tracking-wide" style={{ color: "rgba(180, 83, 9, 0.8)" }} numberOfLines={1}>
-                  {item.comuna?.trim() || "Sin comuna"} {item.region ? `• ${item.region}` : ""}
+                <Text
+                  className="text-[10px] font-semibold text-amber-700 uppercase"
+                  numberOfLines={1}
+                >
+                  {item.comuna?.trim() || "Sin comuna"}{" "}
+                  {item.region ? `• ${item.region}` : ""}
                 </Text>
               </View>
             </View>
           </View>
 
           {/* Footer Metadata */}
-          <View className="flex-row items-center justify-between pt-3 border-t border-slate-100 mt-auto">
-            <View className="flex-row items-center gap-1">
-              <MaterialIcons name="update" size={14} color="#94a3b8" />
-              <Text className="text-[10px] text-slate-500 font-medium mt-0.5">
-                {formatTimeAgo(item.actualizadoEn)}
+          <View className="flex-row items-center justify-between pt-2 border-t border-slate-100">
+            <View className="flex-row items-center">
+              <MaterialIcons
+                name="schedule"
+                size={12}
+                color="#94a3b8"
+                style={{ marginRight: 3 }}
+              />
+              <Text className="text-[10px] text-slate-400 font-medium">
+                {formatTimeAgo(item.actualizadoEn || item.creadoEn)}
               </Text>
             </View>
-            <View className="px-2 py-1 rounded flex-row items-center gap-1" style={{ backgroundColor: "rgba(17, 82, 212, 0.1)" }}>
-              <MaterialIcons name="open-in-new" size={12} color="#1152d4" />
-              <Text className="text-[#1152d4] font-bold text-[10px] uppercase tracking-wider">Detalles</Text>
+
+            <View className="flex-row items-center">
+              <Text className="text-blue-600 font-bold text-[11px] mr-1">
+                Ver detalle
+              </Text>
+              <MaterialIcons name="chevron-right" size={14} color="#2563eb" />
             </View>
           </View>
         </View>
@@ -222,203 +287,338 @@ export default function CaptacionesListScreen({ navigation }) {
   };
 
   return (
-    <View className="flex-1 bg-[#f6f6f8]">
-      {/* Header Fijo con Safe Area integrada */}
+    <View className="flex-1 bg-[#f8fafc]">
+      {/* Top Header */}
       <View
         style={{
           paddingTop: topPadding,
           backgroundColor: "#ffffff",
           borderBottomWidth: 1,
-          borderBottomColor: "#e2e8f0",
+          borderBottomColor: "#f1f5f9",
           zIndex: 10,
         }}
       >
-        <View className="bg-white px-4 py-3 flex-row items-center justify-between">
-          <View className="flex-row items-center gap-3">
-            <TouchableOpacity
-              className="p-1.5 rounded-full flex items-center justify-center"
-              onPress={onRefresh}
-              activeOpacity={0.7}
-            >
-              <MaterialIcons name="sync" size={22} color="#64748b" />
-            </TouchableOpacity>
-            <Text className="text-lg font-bold tracking-tight text-slate-900">
-              {activeTab === "CAPTACIONES" ? "Captaciones" : "Inspecciones"}
-            </Text>
+        <View className="px-5 py-3.5 flex-row items-center justify-between">
+          <View className="flex-row items-center gap-2.5">
+            <View className="w-9 h-9 rounded-xl bg-blue-50 border border-blue-100 items-center justify-center">
+              <MaterialIcons name="home-work" size={20} color="#2563eb" />
+            </View>
+            <View>
+              <Text className="text-lg font-black text-slate-900 tracking-tight">
+                ASESUR
+              </Text>
+              <Text className="text-[11px] text-slate-400 font-bold uppercase tracking-wider">
+                {activeTab === "CAPTACIONES" ? "Captaciones" : "Inspecciones"}
+              </Text>
+            </View>
           </View>
+
           <View className="flex-row items-center gap-2">
             <TouchableOpacity
-              className="p-1.5 rounded-full flex items-center justify-center"
+              onPress={onRefresh}
+              activeOpacity={0.7}
+              className="w-9 h-9 rounded-full bg-slate-50 border border-slate-200/60 items-center justify-center"
+            >
+              <MaterialIcons name="refresh" size={18} color="#64748b" />
+            </TouchableOpacity>
+            <TouchableOpacity
               onPress={signOut}
               activeOpacity={0.7}
+              className="w-9 h-9 rounded-full bg-slate-50 border border-slate-200/60 items-center justify-center"
             >
-              <MaterialIcons name="logout" size={22} color="#64748b" />
+              <MaterialIcons name="logout" size={18} color="#64748b" />
             </TouchableOpacity>
           </View>
         </View>
-      </View>
 
-      {/* Selector de Pestañas (Captaciones / Inspecciones) */}
-      <View className="flex-row bg-white border-b border-slate-200">
-        <TouchableOpacity
-          onPress={() => setActiveTab("CAPTACIONES")}
-          className={`flex-1 py-3 items-center border-b-2 ${activeTab === "CAPTACIONES" ? "border-blue-600" : "border-transparent"}`}
-        >
-          <View className="flex-row items-center gap-1.5">
-            <MaterialIcons name="assignment" size={18} color={activeTab === "CAPTACIONES" ? "#2563eb" : "#64748b"} />
-            <Text className={`text-sm ${activeTab === "CAPTACIONES" ? "text-blue-600 font-bold" : "text-slate-500 font-semibold"}`}>
+        {/* Tab Selector Pills */}
+        <View className="flex-row px-4 pb-3 gap-2">
+          <TouchableOpacity
+            onPress={() => setActiveTab("CAPTACIONES")}
+            activeOpacity={0.7}
+            style={{
+              flex: 1,
+              paddingVertical: 10,
+              borderRadius: 12,
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "center",
+              borderWidth: 1,
+              backgroundColor: activeTab === "CAPTACIONES" ? "#2563eb" : "#f1f5f9",
+              borderColor: activeTab === "CAPTACIONES" ? "#2563eb" : "#e2e8f0",
+            }}
+          >
+            <MaterialIcons
+              name="assignment"
+              size={16}
+              color={activeTab === "CAPTACIONES" ? "#ffffff" : "#64748b"}
+              style={{ marginRight: 6 }}
+            />
+            <Text
+              style={{
+                fontSize: 12,
+                fontWeight: "700",
+                color: activeTab === "CAPTACIONES" ? "#ffffff" : "#475569",
+              }}
+            >
               Captaciones
             </Text>
-          </View>
-        </TouchableOpacity>
-        
-        <TouchableOpacity
-          onPress={() => setActiveTab("INSPECCIONES")}
-          className={`flex-1 py-3 items-center border-b-2 ${activeTab === "INSPECCIONES" ? "border-blue-600" : "border-transparent"}`}
-        >
-          <View className="flex-row items-center gap-1.5">
-            <MaterialIcons name="engineering" size={18} color={activeTab === "INSPECCIONES" ? "#2563eb" : "#64748b"} />
-            <Text className={`text-sm ${activeTab === "INSPECCIONES" ? "text-blue-600 font-bold" : "text-slate-500 font-semibold"}`}>
-              Inspecciones
-            </Text>
-          </View>
-        </TouchableOpacity>
-      </View>
-
-      {/* Header del Contenido de Lista (Filtros) */}
-      <View className="bg-[#f6f6f8] px-4 pt-4 pb-2">
-        <View className="flex-row gap-2 pb-2 z-10">
-          <TouchableOpacity
-            className="flex-1 px-4 h-10 rounded-full bg-white border border-slate-200 flex-row items-center justify-between"
-            onPress={() => setModalRegionVisible(true)}
-            activeOpacity={0.7}
-            style={{ shadowColor: "#000", shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 1, elevation: 1 }}
-          >
-            <Text className={`text-[12px] ${activeRegion ? "text-[#1152d4] font-bold" : "text-slate-500 font-semibold"}`} numberOfLines={1}>
-              {activeRegion ? activeRegion : "Todas las Regiones"}
-            </Text>
-            <MaterialIcons name="expand-more" size={16} color={activeRegion ? "#1152d4" : "#94a3b8"} />
           </TouchableOpacity>
 
           <TouchableOpacity
-            className={`flex-1 px-4 h-10 rounded-full flex-row items-center justify-between border ${!activeRegion ? 'bg-slate-50 border-slate-100' : 'bg-white border-slate-200'}`}
+            onPress={() => setActiveTab("INSPECCIONES")}
+            activeOpacity={0.7}
+            style={{
+              flex: 1,
+              paddingVertical: 10,
+              borderRadius: 12,
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "center",
+              borderWidth: 1,
+              backgroundColor: activeTab === "INSPECCIONES" ? "#2563eb" : "#f1f5f9",
+              borderColor: activeTab === "INSPECCIONES" ? "#2563eb" : "#e2e8f0",
+            }}
+          >
+            <MaterialIcons
+              name="engineering"
+              size={16}
+              color={activeTab === "INSPECCIONES" ? "#ffffff" : "#64748b"}
+              style={{ marginRight: 6 }}
+            />
+            <Text
+              style={{
+                fontSize: 12,
+                fontWeight: "700",
+                color: activeTab === "INSPECCIONES" ? "#ffffff" : "#475569",
+              }}
+            >
+              Inspecciones
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      {/* Filter & Search Bar */}
+      <View className="px-4 pt-3 pb-1">
+        {/* Region / Comuna Pills */}
+        <View className="flex-row gap-2 mb-2">
+          <TouchableOpacity
+            className="flex-1 px-3.5 h-9 rounded-xl bg-white border border-slate-200/80 flex-row items-center justify-between shadow-sm"
+            activeOpacity={0.7}
+            onPress={() => setModalRegionVisible(true)}
+          >
+            <Text
+              className={`text-xs font-bold ${
+                activeRegion ? "text-blue-600" : "text-slate-600"
+              }`}
+              numberOfLines={1}
+            >
+              {activeRegion ? activeRegion : "Región: Todas"}
+            </Text>
+            <MaterialIcons
+              name="keyboard-arrow-down"
+              size={16}
+              color="#94a3b8"
+            />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            className={`flex-1 px-3.5 h-9 rounded-xl flex-row items-center justify-between border shadow-sm ${
+              !activeRegion
+                ? "bg-slate-100 border-slate-200 opacity-60"
+                : "bg-white border-slate-200/80"
+            }`}
+            activeOpacity={0.7}
             onPress={() => {
-              // Permitir presionar solo si hay región
               if (activeRegion) setModalComunaVisible(true);
             }}
-            activeOpacity={0.7}
-            style={
-              activeRegion
-                ? { shadowColor: "#000", shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 1, elevation: 1 }
-                : { opacity: 0.6 }
-            }
             disabled={!activeRegion}
           >
-            <Text className={`text-[12px] ${activeComuna ? "text-[#1152d4] font-bold" : "text-slate-500 font-semibold"}`} numberOfLines={1}>
-              {activeComuna ? activeComuna : "Todas las Comunas"}
+            <Text
+              className={`text-xs font-bold ${
+                activeComuna ? "text-blue-600" : "text-slate-600"
+              }`}
+              numberOfLines={1}
+            >
+              {activeComuna ? activeComuna : "Comuna: Todas"}
             </Text>
-            <MaterialIcons name="expand-more" size={16} color={activeComuna ? "#1152d4" : "#94a3b8"} />
+            <MaterialIcons
+              name="keyboard-arrow-down"
+              size={16}
+              color="#94a3b8"
+            />
           </TouchableOpacity>
         </View>
 
+        {/* Clear filter chip */}
         {(activeRegion || activeComuna) && (
           <TouchableOpacity
-            className="items-start mb-2 ml-1"
-            onPress={() => { setActiveRegion(""); setActiveComuna(""); }}
+            className="self-start mb-2 bg-slate-200/70 rounded-full px-2.5 py-0.5 flex-row items-center"
+            onPress={() => {
+              setActiveRegion("");
+              setActiveComuna("");
+            }}
           >
-            <Text className="text-[11px] font-bold text-slate-400 bg-slate-200 rounded-lg px-2 py-1">Limpiar filtros ✕</Text>
+            <Text className="text-[10px] font-bold text-slate-600 mr-1">
+              Limpiar filtros
+            </Text>
+            <MaterialIcons name="close" size={12} color="#475569" />
           </TouchableOpacity>
         )}
 
-        {/* Input de búsqueda por dirección */}
-        <View className="mb-2 bg-white rounded-xl border border-slate-200 flex-row items-center px-3 h-10 shadow-sm" style={{ shadowColor: "#000", shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 1 }}>
+        {/* Search Input */}
+        <View className="bg-white rounded-2xl border border-slate-200/80 flex-row items-center px-3.5 h-10 shadow-sm">
           <MaterialIcons name="search" size={18} color="#94a3b8" />
           <TextInput
-            className="flex-1 ml-2 text-slate-700 text-[13px] h-full"
-            placeholder="Buscar por dirección o cliente..."
+            className="flex-1 ml-2 text-slate-800 text-xs h-full"
+            placeholder="Buscar por dirección, folio o cliente..."
             placeholderTextColor="#94a3b8"
             value={searchDireccion}
             onChangeText={setSearchDireccion}
             autoCorrect={false}
           />
           {searchDireccion !== "" && (
-            <TouchableOpacity onPress={() => setSearchDireccion("")} className="p-1">
-              <MaterialIcons name="close" size={16} color="#94a3b8" />
+            <TouchableOpacity
+              onPress={() => setSearchDireccion("")}
+              className="p-1"
+            >
+              <MaterialIcons name="close" size={14} color="#94a3b8" />
             </TouchableOpacity>
           )}
         </View>
 
-        {/* Section Title */}
-        <View className="flex-row items-center justify-between pt-2">
-          <Text className="text-sm font-semibold uppercase tracking-wider text-slate-500">
-            {(!activeRegion && !activeComuna) ? "Recientes" : "Resultados de búsqueda"}
+        {/* Results Header */}
+        <View className="flex-row items-center justify-between pt-3 pb-1">
+          <Text className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+            {activeRegion || activeComuna || searchDireccion
+              ? "Resultados"
+              : "Casos Registrados"}
           </Text>
-          <View className="px-2.5 py-1 rounded-full" style={{ backgroundColor: "rgba(226, 232, 240, 0.5)" }}>
-            <Text className="text-[11px] font-bold text-slate-500">{filteredItems.length} casos</Text>
+          <View className="bg-slate-200/70 rounded-full px-2 py-0.5">
+            <Text className="text-[10px] font-extrabold text-slate-600">
+              {filteredItems.length} {filteredItems.length === 1 ? "caso" : "casos"}
+            </Text>
           </View>
         </View>
       </View>
 
-      <FlatList
-        data={filteredItems}
-        keyExtractor={(item) => String(item.id)}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-        contentContainerStyle={{ padding: 16, paddingTop: 8, paddingBottom: Math.max(110, bottomPadding + 95), flexGrow: 1 }}
-        ListEmptyComponent={<EmptyListState refreshing={refreshing} error={error} activeTab={activeTab} />}
-        renderItem={renderItem}
-      />
+      {/* List or Skeleton */}
+      {loadingInitial && !refreshing ? (
+        <SkeletonList count={4} />
+      ) : (
+        <FlatList
+          data={filteredItems}
+          keyExtractor={(item) => String(item.id)}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              colors={["#2563eb"]}
+              tintColor="#2563eb"
+            />
+          }
+          contentContainerStyle={{
+            padding: 16,
+            paddingTop: 4,
+            paddingBottom: Math.max(110, bottomPadding + 95),
+            flexGrow: 1,
+          }}
+          ListEmptyComponent={
+            <EmptyListState
+              refreshing={refreshing}
+              error={error}
+              activeTab={activeTab}
+            />
+          }
+          renderItem={renderItem}
+        />
+      )}
 
-      {/* Floating Action Button (FAB) para Nueva Captación elevado sobre barra de navegación */}
+      {/* Floating Action Button */}
       <TouchableOpacity
-        className="absolute w-[62px] h-[62px] bg-[#1152d4] rounded-full items-center justify-center shadow-xl"
+        className="absolute w-14 h-14 bg-blue-600 rounded-full items-center justify-center shadow-xl"
+        activeOpacity={0.7}
         style={{
           bottom: Math.max(28, bottomPadding + 20),
-          right: 24,
-          elevation: 8,
-          shadowColor: '#1152d4',
-          shadowOpacity: 0.5,
+          right: 20,
+          elevation: 6,
+          shadowColor: "#2563eb",
+          shadowOpacity: 0.4,
           shadowRadius: 10,
-          shadowOffset: { width: 0, height: 5 }
+          shadowOffset: { width: 0, height: 6 },
         }}
-        activeOpacity={0.85}
         onPress={() => navigation.navigate("NuevaCaptacion")}
       >
-        <MaterialIcons name="add" size={32} color="white" />
+        <MaterialIcons name="add" size={28} color="#ffffff" />
       </TouchableOpacity>
 
-      {/* MODAL REGIÓN (FILTRO) */}
-      <Modal visible={modalRegionVisible} transparent animationType="slide" onRequestClose={() => setModalRegionVisible(false)}>
-        <View className="flex-1 justify-end" style={{ backgroundColor: 'rgba(0,0,0,0.4)' }}>
+      {/* MODAL REGIÓN */}
+      <Modal
+        visible={modalRegionVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setModalRegionVisible(false)}
+      >
+        <View
+          className="flex-1 justify-end"
+          style={{ backgroundColor: "rgba(15, 23, 42, 0.45)" }}
+        >
           <View className="bg-white rounded-t-3xl min-h-[50%] max-h-[80%] pb-8">
             <View className="flex-row justify-between items-center px-6 py-4 border-b border-slate-100">
-              <Text className="text-lg font-bold text-slate-800">Filtrar por Región</Text>
-              <TouchableOpacity onPress={() => setModalRegionVisible(false)} className="p-2 bg-slate-100 rounded-full">
-                <MaterialIcons name="close" size={20} color="#64748b" />
+              <Text className="text-base font-bold text-slate-900">
+                Seleccionar Región
+              </Text>
+              <TouchableOpacity
+                onPress={() => setModalRegionVisible(false)}
+                className="w-8 h-8 bg-slate-100 rounded-full items-center justify-center"
+              >
+                <MaterialIcons name="close" size={18} color="#64748b" />
               </TouchableOpacity>
             </View>
             <FlatList
-              data={[{ id: "TODOS", name: "Todas las Regiones" }, ...regionesDisponibles.map(r => ({ id: r, name: r }))]}
+              data={[
+                { id: "TODOS", name: "Todas las Regiones" },
+                ...regionesDisponibles.map((r) => ({ id: r, name: r })),
+              ]}
               keyExtractor={(item) => item.id}
-              contentContainerStyle={{ paddingHorizontal: 16, paddingVertical: 8 }}
+              contentContainerStyle={{
+                paddingHorizontal: 16,
+                paddingVertical: 8,
+              }}
               renderItem={({ item }) => {
-                const isActive = item.id === "TODOS" ? activeRegion === "" : activeRegion === item.name;
+                const isActive =
+                  item.id === "TODOS"
+                    ? activeRegion === ""
+                    : activeRegion === item.name;
                 return (
                   <TouchableOpacity
-                    className={`py-4 px-4 border-b border-slate-50 flex-row justify-between items-center ${isActive ? 'rounded-xl border-b-0' : ''}`}
-                    style={isActive ? { backgroundColor: 'rgba(239, 246, 255, 0.5)' } : {}}
+                    className={`py-3.5 px-4 border-b border-slate-50 flex-row justify-between items-center ${
+                      isActive ? "bg-blue-50/70 rounded-2xl border-b-0" : ""
+                    }`}
                     onPress={() => {
                       if (item.id === "TODOS") {
                         setActiveRegion("");
                         setActiveComuna("");
                       } else {
                         setActiveRegion(item.name);
-                        setActiveComuna(""); // reset comuna
+                        setActiveComuna("");
                       }
                       setModalRegionVisible(false);
                     }}
                   >
-                    <Text className={`text-[15px] ${isActive ? 'font-bold text-[#1152d4]' : 'text-slate-700'}`}>{item.name}</Text>
-                    {isActive && <MaterialIcons name="check" size={20} color="#1152d4" />}
+                    <Text
+                      className={`text-sm ${
+                        isActive
+                          ? "font-bold text-blue-600"
+                          : "text-slate-700 font-medium"
+                      }`}
+                    >
+                      {item.name}
+                    </Text>
+                    {isActive && (
+                      <MaterialIcons name="check" size={18} color="#2563eb" />
+                    )}
                   </TouchableOpacity>
                 );
               }}
@@ -427,26 +627,49 @@ export default function CaptacionesListScreen({ navigation }) {
         </View>
       </Modal>
 
-      {/* MODAL COMUNA (FILTRO) */}
-      <Modal visible={modalComunaVisible} transparent animationType="slide" onRequestClose={() => setModalComunaVisible(false)}>
-        <View className="flex-1 justify-end" style={{ backgroundColor: 'rgba(0,0,0,0.4)' }}>
+      {/* MODAL COMUNA */}
+      <Modal
+        visible={modalComunaVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setModalComunaVisible(false)}
+      >
+        <View
+          className="flex-1 justify-end"
+          style={{ backgroundColor: "rgba(15, 23, 42, 0.45)" }}
+        >
           <View className="bg-white rounded-t-3xl min-h-[50%] max-h-[80%] pb-8">
             <View className="flex-row justify-between items-center px-6 py-4 border-b border-slate-100">
-              <Text className="text-lg font-bold text-slate-800">Filtrar por Comuna</Text>
-              <TouchableOpacity onPress={() => setModalComunaVisible(false)} className="p-2 bg-slate-100 rounded-full">
-                <MaterialIcons name="close" size={20} color="#64748b" />
+              <Text className="text-base font-bold text-slate-900">
+                Seleccionar Comuna
+              </Text>
+              <TouchableOpacity
+                onPress={() => setModalComunaVisible(false)}
+                className="w-8 h-8 bg-slate-100 rounded-full items-center justify-center"
+              >
+                <MaterialIcons name="close" size={18} color="#64748b" />
               </TouchableOpacity>
             </View>
             <FlatList
-              data={[{ id: "TODOS", name: "Todas las Comunas" }, ...comunasDisponibles.map(c => ({ id: c, name: c }))]}
+              data={[
+                { id: "TODOS", name: "Todas las Comunas" },
+                ...comunasDisponibles.map((c) => ({ id: c, name: c })),
+              ]}
               keyExtractor={(item) => item.id}
-              contentContainerStyle={{ paddingHorizontal: 16, paddingVertical: 8 }}
+              contentContainerStyle={{
+                paddingHorizontal: 16,
+                paddingVertical: 8,
+              }}
               renderItem={({ item }) => {
-                const isActive = item.id === "TODOS" ? activeComuna === "" : activeComuna === item.name;
+                const isActive =
+                  item.id === "TODOS"
+                    ? activeComuna === ""
+                    : activeComuna === item.name;
                 return (
                   <TouchableOpacity
-                    className={`py-4 px-4 border-b border-slate-50 flex-row justify-between items-center ${isActive ? 'rounded-xl border-b-0' : ''}`}
-                    style={isActive ? { backgroundColor: 'rgba(239, 246, 255, 0.5)' } : {}}
+                    className={`py-3.5 px-4 border-b border-slate-50 flex-row justify-between items-center ${
+                      isActive ? "bg-blue-50/70 rounded-2xl border-b-0" : ""
+                    }`}
                     onPress={() => {
                       if (item.id === "TODOS") {
                         setActiveComuna("");
@@ -456,8 +679,18 @@ export default function CaptacionesListScreen({ navigation }) {
                       setModalComunaVisible(false);
                     }}
                   >
-                    <Text className={`text-[15px] ${isActive ? 'font-bold text-[#1152d4]' : 'text-slate-700'}`}>{item.name}</Text>
-                    {isActive && <MaterialIcons name="check" size={20} color="#1152d4" />}
+                    <Text
+                      className={`text-sm ${
+                        isActive
+                          ? "font-bold text-blue-600"
+                          : "text-slate-700 font-medium"
+                      }`}
+                    >
+                      {item.name}
+                    </Text>
+                    {isActive && (
+                      <MaterialIcons name="check" size={18} color="#2563eb" />
+                    )}
                   </TouchableOpacity>
                 );
               }}
@@ -465,7 +698,6 @@ export default function CaptacionesListScreen({ navigation }) {
           </View>
         </View>
       </Modal>
-
     </View>
   );
 }

@@ -208,7 +208,7 @@ export default function CalendarPickerModal({
                           onPress={() => handleYearSelect(y)}
                           activeOpacity={0.7}
                           className={`w-[22.5%] py-3.5 rounded-2xl items-center justify-center border ${
-                            isSelected ? "bg-[#1152d4] border-[#1152d4] shadow-sm" : "bg-slate-50 border-slate-200 active:bg-blue-50"
+                            isSelected ? "bg-[#1152d4] border-[#1152d4] shadow-sm" : "bg-slate-50 border-slate-200"
                           }`}
                         >
                           <Text className={`font-black text-sm ${isSelected ? "text-white" : "text-slate-800"}`}>
@@ -242,7 +242,7 @@ export default function CalendarPickerModal({
                         onPress={() => handleMonthSelect(m.id)}
                         activeOpacity={0.7}
                         className={`w-[30.5%] py-5 rounded-2xl items-center justify-center border ${
-                          isSelected ? "bg-[#1152d4] border-[#1152d4] shadow-md" : "bg-slate-50 border-slate-200 active:bg-blue-50"
+                          isSelected ? "bg-[#1152d4] border-[#1152d4] shadow-md" : "bg-slate-50 border-slate-200"
                         }`}
                       >
                         <Text className={`text-[11px] font-bold uppercase mb-1 ${isSelected ? "text-blue-100" : "text-slate-400"}`}>
@@ -265,7 +265,7 @@ export default function CalendarPickerModal({
                 <View className="flex-row items-center justify-between mb-4 bg-slate-50 p-2.5 rounded-2xl border border-slate-200">
                   <TouchableOpacity
                     onPress={handlePrevMonth}
-                    className="w-10 h-10 rounded-xl bg-white border border-slate-200 items-center justify-center active:bg-slate-100"
+                    className="w-10 h-10 rounded-xl bg-white border border-slate-200 items-center justify-center"
                   >
                     <MaterialIcons name="chevron-left" size={24} color="#334155" />
                   </TouchableOpacity>
@@ -287,7 +287,7 @@ export default function CalendarPickerModal({
 
                   <TouchableOpacity
                     onPress={handleNextMonth}
-                    className="w-10 h-10 rounded-xl bg-white border border-slate-200 items-center justify-center active:bg-slate-100"
+                    className="w-10 h-10 rounded-xl bg-white border border-slate-200 items-center justify-center"
                   >
                     <MaterialIcons name="chevron-right" size={24} color="#334155" />
                   </TouchableOpacity>
@@ -321,7 +321,7 @@ export default function CalendarPickerModal({
                         onPress={() => handleDaySelect(dayNum)}
                         activeOpacity={0.7}
                         className={`w-[13%] h-11 mb-2 rounded-xl items-center justify-center border ${
-                          isSelected ? "bg-[#1152d4] border-[#1152d4] shadow-md" : "bg-white border-slate-100 active:bg-blue-50"
+                          isSelected ? "bg-[#1152d4] border-[#1152d4] shadow-md" : "bg-white border-slate-100"
                         }`}
                       >
                         <Text className={`font-black text-sm ${isSelected ? "text-white" : "text-slate-800"}`}>

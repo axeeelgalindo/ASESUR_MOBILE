@@ -1,7 +1,7 @@
 /// <reference types="nativewind/types" />
 import "./global.css";
 import React, { useEffect } from "react";
-import { AppState, View, StatusBar as RNStatusBar, Platform, LogBox } from "react-native";
+import { AppState, View, StatusBar as RNStatusBar, Platform, LogBox, ActivityIndicator } from "react-native";
 
 // Ocultar barra/toast flotante de warnings (LogBox) en pantalla del dispositivo
 LogBox.ignoreAllLogs(true);
@@ -14,9 +14,8 @@ LogBox.ignoreLogs([
 import { PaperProvider } from "react-native-paper";
 import { NavigationContainer } from "@react-navigation/native";
 
-import { AuthProvider } from "./src/auth/AuthContext";
+import { AuthProvider, useAuth } from "./src/auth/AuthContext";
 import RootNavigator from "./src/navigation/RootNavigator";
-import GlobalKeyboardToolbar from "./src/components/GlobalKeyboardToolbar";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 
@@ -43,9 +42,7 @@ TaskManager.defineTask(UPLOAD_TASK, async () => {
 async function registerUploadTask() {
   try {
     const status = await BackgroundFetch.getStatusAsync();
-
     if (status !== BackgroundFetch.BackgroundFetchStatus.Available) {
-      // iOS puede decir Restricted/Denied
       return;
     }
 
@@ -53,14 +50,35 @@ async function registerUploadTask() {
     if (isRegistered) return;
 
     await BackgroundFetch.registerTaskAsync(UPLOAD_TASK, {
-      minimumInterval: 60 * 5, // 5 min (aprox)
+      minimumInterval: 60 * 5,
       stopOnTerminate: false,
       startOnBoot: true,
     });
-  } catch (e) {
-    // no crashear app si background fetch falla
-    console.log("BG register error:", e?.message || e);
+  } catch {
+    // Expo Go o iOS sin UIBackgroundModes habilitado
   }
+}
+
+function CenterLoader() {
+  return (
+    <View style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: "#f8fafc" }}>
+      <ActivityIndicator size="large" color="#2563eb" />
+    </View>
+  );
+}
+
+function MainApp() {
+  const { booting } = useAuth();
+
+  if (booting) {
+    return <CenterLoader />;
+  }
+
+  return (
+    <NavigationContainer>
+      <RootNavigator />
+    </NavigationContainer>
+  );
 }
 
 export default function App() {
@@ -93,10 +111,7 @@ export default function App() {
         <AuthProvider>
           <View style={{ flex: 1 }}>
             <StatusBar style="dark" backgroundColor="transparent" translucent={true} />
-            <NavigationContainer>
-              <RootNavigator />
-            </NavigationContainer>
-            <GlobalKeyboardToolbar />
+            <MainApp />
           </View>
         </AuthProvider>
       </PaperProvider>
