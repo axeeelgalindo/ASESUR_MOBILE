@@ -477,6 +477,7 @@ export default function CaptacionesListScreen({ navigation }) {
             value={searchDireccion}
             onChangeText={setSearchDireccion}
             autoCorrect={false}
+            spellCheck={false}
           />
           {searchDireccion !== "" && (
             <TouchableOpacity

@@ -61,10 +61,6 @@ export default function LoginScreen() {
           }}
           keyboardShouldPersistTaps="handled"
         >
-          {/* Decorative ambient gradients */}
-          <View pointerEvents="none" className="absolute -top-32 -left-32 w-80 h-80 bg-blue-500/10 rounded-full blur-3xl" />
-          <View pointerEvents="none" className="absolute -bottom-32 -right-32 w-80 h-80 bg-indigo-500/10 rounded-full blur-3xl" />
-
           {/* Login Card */}
           <View
             className="w-full max-w-[420px] bg-white dark:bg-slate-900 rounded-3xl overflow-hidden border border-slate-200/80 dark:border-slate-800 shadow-xl"
@@ -103,7 +99,7 @@ export default function LoginScreen() {
                 <View
                   className={`flex-row items-center rounded-xl border bg-slate-50/80 dark:bg-slate-800/80 px-3.5 h-12 ${
                     focusedField === "email"
-                      ? "border-blue-600 bg-white dark:bg-slate-900 ring-2 ring-blue-500/10"
+                      ? "border-blue-600 bg-white dark:bg-slate-900"
                       : "border-slate-200 dark:border-slate-700"
                   }`}
                 >
@@ -118,6 +114,8 @@ export default function LoginScreen() {
                     placeholder="usuario@asesur.cl"
                     placeholderTextColor="#94a3b8"
                     autoCapitalize="none"
+                    autoCorrect={false}
+                    spellCheck={false}
                     keyboardType="email-address"
                     value={email}
                     onChangeText={setEmail}
@@ -135,7 +133,7 @@ export default function LoginScreen() {
                 <View
                   className={`flex-row items-center rounded-xl border bg-slate-50/80 dark:bg-slate-800/80 px-3.5 h-12 ${
                     focusedField === "password"
-                      ? "border-blue-600 bg-white dark:bg-slate-900 ring-2 ring-blue-500/10"
+                      ? "border-blue-600 bg-white dark:bg-slate-900"
                       : "border-slate-200 dark:border-slate-700"
                   }`}
                 >
@@ -150,6 +148,8 @@ export default function LoginScreen() {
                     placeholder="••••••••"
                     placeholderTextColor="#94a3b8"
                     secureTextEntry={!showPassword}
+                    autoCorrect={false}
+                    spellCheck={false}
                     value={password}
                     onChangeText={setPassword}
                     onFocus={() => setFocusedField("password")}

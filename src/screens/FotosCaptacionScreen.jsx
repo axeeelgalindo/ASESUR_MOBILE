@@ -19,6 +19,7 @@ import { api, PUBLIC_URL } from "../../api/client";
 import { useAuth } from "../auth/AuthContext";
 import ModernHeader from "../components/ui/ModernHeader";
 import ModernCard from "../components/ui/ModernCard";
+import { processQueue } from "../mobile/uploads/uploadQueue";
 
 export const PARTES = [
   "FACHADA",

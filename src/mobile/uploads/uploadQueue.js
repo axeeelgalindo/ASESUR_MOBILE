@@ -4,6 +4,7 @@ import { BASE_URL } from "../../../api/client";
 
 // ✅ Comprime + devuelve base64 para evitar 413
 export async function compressToBase64(photoUri) {
+  if (!photoUri) throw new Error("URI de foto inválida");
   const manipulated = await ImageManipulator.manipulateAsync(
     photoUri,
     [{ resize: { width: 1600 } }],
@@ -49,32 +50,51 @@ const KEY = "UPLOAD_QUEUE_V1";
 let running = false;
 
 async function readQueue() {
-  const raw = await AsyncStorage.getItem(KEY);
-  const q = raw ? JSON.parse(raw) : [];
-  return Array.isArray(q) ? q : [];
+  try {
+    const raw = await AsyncStorage.getItem(KEY);
+    const q = raw ? JSON.parse(raw) : [];
+    return Array.isArray(q) ? q : [];
+  } catch {
+    return [];
+  }
 }
 
 async function writeQueue(q) {
-  await AsyncStorage.setItem(KEY, JSON.stringify(q));
+  try {
+    await AsyncStorage.setItem(KEY, JSON.stringify(q));
+  } catch {
+    // ignore
+  }
 }
 
 export async function enqueueUpload(job) {
-  const q = await readQueue();
-  q.push(job);
-  await writeQueue(q);
+  try {
+    const q = await readQueue();
+    q.push({ ...job, retries: 0 });
+    await writeQueue(q);
+  } catch {
+    // ignore
+  }
 }
 
 export async function processQueue() {
   if (running) return;
+  const token = await AsyncStorage.getItem("token");
+  if (!token) return;
   running = true;
 
   try {
     const q = await readQueue();
-    if (q.length === 0) return;
+    if (!q || q.length === 0) return;
 
     const remaining = [];
 
     for (const job of q) {
+      // Descartar jobs con más de 3 reintentos fallidos o sin URI
+      if (!job?.photoUri || (job.retries && job.retries >= 3)) {
+        continue;
+      }
+
       try {
         await uploadPhotoBase64({
           casoId: job.casoId,
@@ -83,13 +103,18 @@ export async function processQueue() {
           titulo: job.titulo || null,
         });
       } catch (e) {
-        // queda en cola para reintentar después
-        remaining.push(job);
+        // Incrementa reintentos y mantiene en cola si no superó el límite
+        const retries = (job.retries || 0) + 1;
+        if (retries < 3) {
+          remaining.push({ ...job, retries });
+        }
       }
     }
 
     await writeQueue(remaining);
+  } catch {
+    // Proteger contra cualquier error fatal
   } finally {
     running = false;
   }
-}
+}

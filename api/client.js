@@ -5,7 +5,7 @@ export const PUBLIC_URL = process.env.EXPO_PUBLIC_URL;
 
 export const api = axios.create({
   baseURL: BASE_URL,
-  timeout: 60000,
+  timeout: 15000,
 });
 
 export function setAuthToken(token) {

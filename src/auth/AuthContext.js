@@ -12,7 +12,6 @@ export function AuthProvider({ children }) {
   const [me, setMe] = useState(null);
 
   const loadSession = async () => {
-    setBooting(true);
     try {
       const t = await AsyncStorage.getItem(TOKEN_KEY);
 
@@ -20,20 +19,30 @@ export function AuthProvider({ children }) {
         setAuthToken(null);
         setToken(null);
         setMe(null);
+        setBooting(false);
         return;
       }
 
       setAuthToken(t);
       setToken(t);
+      setBooting(false);
 
-      const res = await api.get("/auth/me");
-      setMe(res.data);
-    } catch (e) {
-      await AsyncStorage.removeItem(TOKEN_KEY);
+      // Cargar datos del usuario en segundo plano sin congelar la app
+      try {
+        const res = await api.get("/auth/me");
+        setMe(res.data);
+      } catch (meError) {
+        if (meError?.response?.status === 401) {
+          await AsyncStorage.removeItem(TOKEN_KEY);
+          setAuthToken(null);
+          setToken(null);
+          setMe(null);
+        }
+      }
+    } catch {
       setAuthToken(null);
       setToken(null);
       setMe(null);
-    } finally {
       setBooting(false);
     }
   };
@@ -44,16 +53,20 @@ export function AuthProvider({ children }) {
 
   const signIn = async (email, password) => {
     const res = await api.post("/auth/login", { email, password });
-    if (!res.data?.ok || !res.data?.token) throw new Error("Login inválido");
+    if (!res.data?.ok || !res.data?.token) throw new Error("Credenciales inválidas");
 
     const t = res.data.token;
-
     await AsyncStorage.setItem(TOKEN_KEY, t);
     setAuthToken(t);
-    setToken(t);
 
-    const meRes = await api.get("/auth/me");
-    setMe(meRes.data);
+    try {
+      const meRes = await api.get("/auth/me");
+      setMe(meRes.data);
+    } catch (e) {
+      console.log("Could not fetch me immediately:", e?.message);
+    }
+
+    setToken(t);
   };
 
   const signOut = async () => {

@@ -1,6 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { View, Text, TouchableOpacity, ActivityIndicator } from "react-native";
-import { Menu } from "react-native-paper";
+import { View, Text, TouchableOpacity, ActivityIndicator, Modal, ScrollView } from "react-native";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import * as ImagePicker from "expo-image-picker";
 import { MaterialIcons } from "@expo/vector-icons";
@@ -211,39 +210,22 @@ export default function TomarFotoScreen({ route, navigation }) {
             <MaterialIcons name="close" size={22} color="#ffffff" />
           </TouchableOpacity>
 
-          {/* Part Selector */}
-          <Menu
-            visible={menuVisible}
-            onDismiss={() => setMenuVisible(false)}
-            anchor={
-              <TouchableOpacity
-                onPress={() => setMenuVisible(true)}
-                activeOpacity={0.7}
-                className="flex-row items-center gap-1 bg-black/60 px-4 py-2 rounded-full border border-white/30"
-              >
-                <MaterialIcons name="home-work" size={16} color="#ffffff" />
-                <Text className="text-white font-extrabold text-xs uppercase tracking-wider">
-                  {prettyParte(parteCasa)}
-                </Text>
-                <MaterialIcons
-                  name="arrow-drop-down"
-                  size={18}
-                  color="#ffffff"
-                />
-              </TouchableOpacity>
-            }
+          {/* Part Selector Button */}
+          <TouchableOpacity
+            onPress={() => setMenuVisible(true)}
+            activeOpacity={0.7}
+            className="flex-row items-center gap-1 bg-black/60 px-4 py-2 rounded-full border border-white/30"
           >
-            {PARTES.map((p) => (
-              <Menu.Item
-                key={p}
-                title={prettyParte(p)}
-                onPress={() => {
-                  setParteCasa(p);
-                  setMenuVisible(false);
-                }}
-              />
-            ))}
-          </Menu>
+            <MaterialIcons name="home-work" size={16} color="#ffffff" />
+            <Text className="text-white font-extrabold text-xs uppercase tracking-wider">
+              {prettyParte(parteCasa)}
+            </Text>
+            <MaterialIcons
+              name="arrow-drop-down"
+              size={18}
+              color="#ffffff"
+            />
+          </TouchableOpacity>
 
           {/* Counter */}
           <View className="bg-emerald-500/90 px-3 py-1.5 rounded-full flex-row items-center gap-1">
@@ -322,6 +304,59 @@ export default function TomarFotoScreen({ route, navigation }) {
           </View>
         </View>
       </View>
+
+      {/* Modal Selector de Zona / Parte */}
+      <Modal
+        visible={menuVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setMenuVisible(false)}
+      >
+        <TouchableOpacity
+          className="flex-1 justify-center items-center bg-black/60 p-5"
+          activeOpacity={1}
+          onPress={() => setMenuVisible(false)}
+        >
+          <View className="bg-white rounded-3xl w-full max-w-[340px] max-h-[70%] overflow-hidden shadow-2xl">
+            <View className="px-5 py-4 border-b border-slate-100 flex-row justify-between items-center bg-slate-50">
+              <View className="flex-row items-center gap-2">
+                <MaterialIcons name="home-work" size={20} color="#2563eb" />
+                <Text className="font-extrabold text-slate-900 text-base">Seleccionar Zona</Text>
+              </View>
+              <TouchableOpacity
+                onPress={() => setMenuVisible(false)}
+                className="w-8 h-8 rounded-full bg-slate-200/60 items-center justify-center"
+              >
+                <MaterialIcons name="close" size={18} color="#64748b" />
+              </TouchableOpacity>
+            </View>
+            <ScrollView className="p-3">
+              {PARTES.map((p) => {
+                const isSelected = parteCasa === p;
+                return (
+                  <TouchableOpacity
+                    key={p}
+                    onPress={() => {
+                      setParteCasa(p);
+                      setMenuVisible(false);
+                    }}
+                    className={`py-3 px-3.5 rounded-xl flex-row items-center justify-between mb-1.5 ${
+                      isSelected
+                        ? "bg-blue-50 border border-blue-200"
+                        : "bg-slate-50/70 border border-slate-100"
+                    }`}
+                  >
+                    <Text className={`text-xs font-bold ${isSelected ? "text-blue-700" : "text-slate-700"}`}>
+                      {prettyParte(p)}
+                    </Text>
+                    {isSelected && <MaterialIcons name="check" size={18} color="#2563eb" />}
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          </View>
+        </TouchableOpacity>
+      </Modal>
     </View>
   );
 }

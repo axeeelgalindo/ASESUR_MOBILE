@@ -9,11 +9,9 @@ LogBox.ignoreLogs([
   "Require cycle:",
   "setLayoutAnimationEnabledExperimental",
   "SafeAreaView has been deprecated",
-  "expo-background-fetch",
 ]);
-import { PaperProvider } from "react-native-paper";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { NavigationContainer } from "@react-navigation/native";
-
 import { AuthProvider, useAuth } from "./src/auth/AuthContext";
 import RootNavigator from "./src/navigation/RootNavigator";
 import { SafeAreaProvider } from "react-native-safe-area-context";
@@ -21,43 +19,6 @@ import { StatusBar } from "expo-status-bar";
 
 // ✅ cola offline
 import { processQueue } from "./src/mobile/uploads/uploadQueue";
-
-// ✅ background task (Expo)
-import * as TaskManager from "expo-task-manager";
-import * as BackgroundFetch from "expo-background-fetch";
-
-const UPLOAD_TASK = "UPLOAD_QUEUE_TASK";
-
-// 1) Definir tarea background (se ejecuta cuando iOS/Android te deja)
-TaskManager.defineTask(UPLOAD_TASK, async () => {
-  try {
-    await processQueue();
-    return BackgroundFetch.BackgroundFetchResult.NewData;
-  } catch (e) {
-    return BackgroundFetch.BackgroundFetchResult.Failed;
-  }
-});
-
-// 2) Registrar tarea background
-async function registerUploadTask() {
-  try {
-    const status = await BackgroundFetch.getStatusAsync();
-    if (status !== BackgroundFetch.BackgroundFetchStatus.Available) {
-      return;
-    }
-
-    const isRegistered = await TaskManager.isTaskRegisteredAsync(UPLOAD_TASK);
-    if (isRegistered) return;
-
-    await BackgroundFetch.registerTaskAsync(UPLOAD_TASK, {
-      minimumInterval: 60 * 5,
-      stopOnTerminate: false,
-      startOnBoot: true,
-    });
-  } catch {
-    // Expo Go o iOS sin UIBackgroundModes habilitado
-  }
-}
 
 function CenterLoader() {
   return (
@@ -74,11 +35,7 @@ function MainApp() {
     return <CenterLoader />;
   }
 
-  return (
-    <NavigationContainer>
-      <RootNavigator />
-    </NavigationContainer>
-  );
+  return <RootNavigator />;
 }
 
 export default function App() {
@@ -89,32 +46,37 @@ export default function App() {
       RNStatusBar.setBarStyle("dark-content");
     }
 
-    // ✅ 1) registra background upload
-    registerUploadTask();
+    // ✅ Intenta procesar cola de subida de forma diferida para no interferir con el arranque
+    const timer = setTimeout(() => {
+      processQueue().catch(() => {});
+    }, 1500);
 
-    // ✅ 2) intenta subir cola al abrir app
-    processQueue();
-
-    // ✅ 3) cada vez que la app vuelve a foreground, intenta subir cola
     const sub = AppState.addEventListener("change", (state) => {
       if (state === "active") {
-        processQueue();
+        setTimeout(() => {
+          processQueue().catch(() => {});
+        }, 1000);
       }
     });
 
-    return () => sub.remove();
+    return () => {
+      clearTimeout(timer);
+      sub.remove();
+    };
   }, []);
 
   return (
-    <SafeAreaProvider>
-      <PaperProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <SafeAreaProvider>
         <AuthProvider>
-          <View style={{ flex: 1 }}>
-            <StatusBar style="dark" backgroundColor="transparent" translucent={true} />
-            <MainApp />
-          </View>
+          <NavigationContainer>
+            <View style={{ flex: 1 }}>
+              <StatusBar style="dark" backgroundColor="transparent" translucent={true} />
+              <MainApp />
+            </View>
+          </NavigationContainer>
         </AuthProvider>
-      </PaperProvider>
-    </SafeAreaProvider>
+      </SafeAreaProvider>
+    </GestureHandlerRootView>
   );
-}
+}
