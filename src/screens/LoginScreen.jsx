@@ -33,7 +33,7 @@ export default function LoginScreen() {
     setError("");
     setBusy(true);
     try {
-      await signIn(email.trim(), password);
+      await signIn(email.trim().toLowerCase(), password);
     } catch (e) {
       console.log("LOGIN ERROR", e?.response?.data || e.message);
       setError(

@@ -52,7 +52,8 @@ export function AuthProvider({ children }) {
   }, []);
 
   const signIn = async (email, password) => {
-    const res = await api.post("/auth/login", { email, password });
+    const cleanEmail = email ? String(email).trim().toLowerCase() : "";
+    const res = await api.post("/auth/login", { email: cleanEmail, password });
     if (!res.data?.ok || !res.data?.token) throw new Error("Credenciales inválidas");
 
     const t = res.data.token;

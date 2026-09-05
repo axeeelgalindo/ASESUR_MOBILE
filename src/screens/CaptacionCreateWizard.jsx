@@ -255,7 +255,7 @@ export default function CaptacionCreateWizard({ navigation }) {
         direccion: `${direccion.trim()} ${numeroCalle.trim()} ${depto.trim() ? `, ${depto.trim()}` : ""}`.trim(),
         region: region.trim() || null,
         comuna: comuna.trim() || null,
-        emailCliente: emailCliente.trim() || null,
+        emailCliente: emailCliente.trim() ? emailCliente.trim().toLowerCase() : null,
         telefonoCliente1: telefonoCliente1.trim() || null,
         telefonoCliente2: telefonoCliente2.trim() || null,
         banco: banco === "Otro" ? (otroBanco.trim() || "Otro") : (banco.trim() || null),
